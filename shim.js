@@ -156,10 +156,12 @@ onAuthStateChanged(auth, async (u) => {
     SPACE = await pickSpace(u);
     if (!SPACE) { showGate(`${u.email} 계정은 아직 초대받지 않았어요. 일지 주인에게 초대를 부탁해 주세요.`, false); return; }
     SID = SPACE.id;
-    try { await setDoc(doc(fs, `spaces/${SID}/profiles/${u.uid}`), { name: u.displayName || u.email.split('@')[0], email: u.email }, { merge: true }); } catch (e) {}
+    try { const pr = await getDoc(doc(fs, `spaces/${SID}/profiles/${u.uid}`)); if (!pr.exists() || !pr.data().set) await setDoc(doc(fs, `spaces/${SID}/profiles/${u.uid}`), { name: u.displayName || u.email.split('@')[0], email: u.email }, { merge: true }); } catch (e) {} // 직접 정한 이름(set)은 그대로 둬요
     window.__CREATOR = u.email === CREATOR_EMAIL && SPACE.owner === u.uid;
     gate.hidden = true;
+    window.__web = { fs, auth, U: u, SID, SPACE, profCache };
     runApp();
+    import('./web.js').catch((e) => console.error('[web]', e));
   } catch (e) {
     console.error(e);
     showGate('일지를 열지 못했어요: ' + (e.code || e.message) + ' — 인터넷 연결을 확인하고 새로고침해 주세요.', false);
