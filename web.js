@@ -20,18 +20,24 @@ st.textContent = `#mUpd, #mCheck { display: none !important; }
 .wrow .wx { flex: none; font: inherit; font-size: 13px; height: 34px; padding: 0 12px; border-radius: 17px; border: 1px solid var(--k9fb2d4, #c9d3e6); background: transparent; color: inherit; cursor: pointer; }
 .wadd { display: flex; gap: 6px; margin-top: 10px; }
 .wadd input { flex: 1 1 auto; min-width: 0; }
-.wtag { font-size: 12px; opacity: .75; flex: none; }`;
+.wtag { font-size: 12px; opacity: .75; flex: none; }
+.modal .sheet:has(> .wclose) { position: relative; }
+.modal .sheet > .wclose { position: absolute; top: 12px; right: 12px; width: 34px; height: 34px; border-radius: 50%; border: 0; background: transparent; color: var(--mute, #6b7385); font-size: 18px; line-height: 34px; padding: 0; cursor: pointer; }
+.modal .sheet > .wclose:active { background: var(--line, #e3e7ee); }
+.modal .sheet:has(> .wclose) > h2 { padding-right: 36px; }
+.wst { font-size: 13px; line-height: 1.5; margin-top: 8px; padding: 6px 10px; border-radius: 10px; background: var(--blue-l, #e8f0fe); color: var(--blue-d, #174ea6); }
+.wst:empty { display: none; } .wst.bad { background: #fde3e3; color: #b3261e; }`;
 document.head.appendChild(st);
 
 // ── 새 창(모달) 두 개: 공유, 내 이름
 document.body.insertAdjacentHTML('beforeend', `
-<div class="modal" id="wShareModal" role="dialog" aria-modal="true"><div class="sheet"><h2>공유</h2>
+<div class="modal" id="wShareModal" role="dialog" aria-modal="true"><div class="sheet"><button class="wclose" type="button" aria-label="닫기">✕</button><h2>공유</h2>
   <p class="note" id="wShareNote"></p>
   <div id="wMembers"></div>
   <div class="wadd" id="wAdd"><input class="tin" id="wEmail" type="email" placeholder="초대할 Google 메일" autocomplete="off">
     <select id="wRole"><option value="edit">함께 쓰기</option><option value="view">보기만</option></select></div>
   <div class="actions"><button class="ghost" id="wShareNo">닫기</button><button class="go" id="wShareGo">초대</button></div><div class="msg" id="wShareMsg"></div></div></div>
-<div class="modal" id="wNameModal" role="dialog" aria-modal="true"><div class="sheet"><h2>내 이름</h2>
+<div class="modal" id="wNameModal" role="dialog" aria-modal="true"><div class="sheet"><button class="wclose" type="button" aria-label="닫기">✕</button><h2>내 이름</h2>
   <p class="note">일지에서 '마지막 저장', 수정 기록 등에 보이는 이름이에요.</p>
   <div class="field"><label for="wName">이름</label><input class="tin" id="wName" maxlength="20" autocomplete="off"></div>
   <div class="actions"><button class="ghost" id="wNameNo">닫기</button><button class="go" id="wNameGo">저장</button></div><div class="msg" id="wNameMsg"></div></div></div>`);
@@ -51,7 +57,19 @@ function drawMembers() {
     return `<div class="wrow"><span class="wm">${esc(m)}${me ? ' (나)' : ''}</span>${ctl}</div>`;
   }).join('');
 }
-const say = (id, t, bad) => { const m = $(id); m.textContent = t || ''; m.classList.toggle('err', !!bad); };
+// 알림·PDF 창에서는 결과 글을 누른 단추 바로 옆(그 칸 안)에 보여 줘요 — 맨 아래까지 내려 보지 않아도 되게
+let lastBtn = null;
+const say = (id, t, bad) => {
+  const m = $(id); m.textContent = t || ''; m.classList.toggle('err', !!bad);
+  const md = m.closest('#wNotiModal, #wPdfModal'); if (!md) return;
+  m.hidden = true;
+  md.querySelectorAll('.wst').forEach((x) => { x.textContent = ''; });
+  const b = lastBtn && md.contains(lastBtn) ? lastBtn : null; if (!b || !t) return;
+  const box = b.closest('.aubox'); if (!box) { m.hidden = false; return; }
+  let w = box.querySelector('.wst'); if (!w) { w = document.createElement('div'); w.className = 'wst'; box.appendChild(w); }
+  w.textContent = t; w.classList.toggle('bad', !!bad);
+};
+document.addEventListener('click', (e) => { const b = e.target.closest && e.target.closest('#wNotiModal button, #wPdfModal button'); if (b) lastBtn = b; }, true);
 const ref = () => doc(fs, 'spaces', SID);
 onSnapshot(ref(), (s) => { if (s.exists()) { space = { id: s.id, ...s.data() }; W.SPACE = space; if ($('wShareModal').classList.contains('on')) drawMembers(); } }, () => {});
 $('wMembers').addEventListener('change', async (e) => {
@@ -96,7 +114,7 @@ if (menu && anchor) {
 
 // ── 옮기기 파일 가져오기: Claude 일지에서 꺼낸 내용(날짜별 기록·쪽지·사진·설정·수정 기록·나만 보는 일지)을 이 일지에 넣어요
 document.body.insertAdjacentHTML('beforeend', `<input type="file" id="wImpFile" accept=".json,application/json" hidden>
-<div class="modal" id="wImpModal" role="dialog" aria-modal="true"><div class="sheet"><h2>옮기기 파일 가져오기</h2>
+<div class="modal" id="wImpModal" role="dialog" aria-modal="true"><div class="sheet"><button class="wclose" type="button" aria-label="닫기">✕</button><h2>옮기기 파일 가져오기</h2>
   <p class="note" id="wImpNote">Claude 일지에서 꺼낸 옮기기 파일(.json)을 골라 주세요. 같은 날짜의 내용은 파일 내용으로 바뀌어요.</p>
   <div class="actions"><button class="ghost" id="wImpNo">닫기</button><button class="go" id="wImpPick">파일 고르기</button></div><div class="msg" id="wImpMsg"></div></div></div>`);
 $('wImpNo').addEventListener('click', () => close('wImpModal'));
@@ -147,7 +165,7 @@ document.head.appendChild(st2);
 const sw = (id, label) => `<button class="mrowbtn ausw" id="${id}" type="button" role="switch" aria-label="${label}"><span class="sw"></span></button>`;
 const setSw = (id, on) => { const b = $(id); b.classList.toggle('on', !!on); b.setAttribute('aria-checked', String(!!on)); };
 document.body.insertAdjacentHTML('beforeend', `
-<div class="modal" id="wNotiModal" role="dialog" aria-modal="true"><div class="sheet"><h2>휴대폰 알림</h2>
+<div class="modal" id="wNotiModal" role="dialog" aria-modal="true"><div class="sheet"><button class="wclose" type="button" aria-label="닫기">✕</button><h2>휴대폰 알림</h2>
   <p class="note">알림은 이 일지를 연 휴대폰·컴퓨터로 와요. 알림을 받을 기기마다 한 번씩 '이 기기에서 알림 받기'를 켜 주세요.</p>
   <div class="aubox"><div class="auh"><b>이 기기에서 알림 받기</b>${sw('wDevSw', '이 기기에서 알림 받기')}</div>
     <p class="wstat" id="wDevNote"></p></div>
@@ -161,7 +179,7 @@ document.body.insertAdjacentHTML('beforeend', `
     <p>매일 새벽 공휴일 달력(Google '대한민국의 휴일')을 확인해서 올해·내년 공휴일을 모든 일지에 맞춰요. 새로 생긴 임시공휴일은 더하고, 바뀐 이름은 고치고, 빠진 날은 지워요(직접 넣은 날짜는 그대로). 지금 바로 한 번 맞출 수도 있어요.</p>
     <div class="aur"><button type="button" class="autest" id="wHolGo">지금 맞추기</button></div></div>
   <div class="actions"><button class="ghost" id="wNotiNo">닫기</button></div><div class="msg" id="wNotiMsg"></div></div></div>
-<div class="modal" id="wPdfModal" role="dialog" aria-modal="true"><div class="sheet"><h2>PDF 백업 메일</h2>
+<div class="modal" id="wPdfModal" role="dialog" aria-modal="true"><div class="sheet"><button class="wclose" type="button" aria-label="닫기">✕</button><h2>PDF 백업 메일</h2>
   <p class="note">이 일지 전체(사진 포함)를 PDF로 만들어 메일로 보내요. 매월은 지난달까지, 매주·매일은 오늘까지 넣어요.</p>
   <div class="aubox" id="wPdfEdit"><div class="auh"><b>사용하기</b>${sw('wPdfSw', 'PDF 백업 메일 사용하기')}</div>
     <div class="aur"><input class="tin" id="wPdfMails" type="text" inputmode="email" placeholder="받는 메일 (여러 명은 쉼표로)" autocomplete="off"></div>
@@ -186,14 +204,15 @@ const swapBtn = (id, fn) => { const o = $(id); if (!o) return; const n = o.clone
 
 // 서버 작업 부탁: jobs에 문서를 만들고, 끝나면 결과 글을 보여 줘요
 async function job(kind, extra, msgId) {
-  say(msgId, '서버에 부탁하는 중…');
+  const b0 = lastBtn, sayJ = (id, t, bad) => { const pv = lastBtn; lastBtn = b0; say(id, t, bad); lastBtn = pv; }; // 결과는 처음 누른 단추 옆에
+  sayJ(msgId, '서버에 부탁하는 중…');
   try {
     const r = await addDoc(collection(fs, 'jobs'), { kind, by: U.uid, at: Date.now(), ...extra });
-    say(msgId, kind === 'pdf' ? 'PDF를 만들어 보내는 중… (1분쯤 걸려요)' : '보내는 중…');
+    sayJ(msgId, kind === 'pdf' ? 'PDF를 만들어 보내는 중… (1분쯤 걸려요)' : '보내는 중…');
     let un = () => {};
-    const t = setTimeout(() => { un(); say(msgId, '서버가 아직 대답하지 않아요. 서버 기능이 아직 켜지지 않았을 수 있어요.', true); }, 180000);
-    un = onSnapshot(r, (s) => { const x = s.data(); if (!x || !x.status) return; clearTimeout(t); un(); say(msgId, (x.status === 'done' ? '' : '실패: ') + (x.msg || ''), x.status !== 'done'); }, () => {});
-  } catch (er) { say(msgId, '부탁하지 못했어요: ' + (er.code || er.message), true); }
+    const t = setTimeout(() => { un(); sayJ(msgId, '서버가 아직 대답하지 않아요. 서버 기능이 아직 켜지지 않았을 수 있어요.', true); }, 180000);
+    un = onSnapshot(r, (s) => { const x = s.data(); if (!x || !x.status) return; clearTimeout(t); un(); sayJ(msgId, (x.status === 'done' ? '' : '실패: ') + (x.msg || ''), x.status !== 'done'); }, () => {});
+  } catch (er) { sayJ(msgId, '부탁하지 못했어요: ' + (er.code || er.message), true); }
 }
 
 // 이 기기 알림: 브라우저 푸시 등록 → private/{나}/devices/{기기}
@@ -330,3 +349,6 @@ swapBtn('mPdf', () => {
   if (CREATOR) drawMail();
   open('wPdfModal');
 });
+
+// 창 오른쪽 위 ✕: 그 창 닫기
+document.addEventListener('click', (e) => { const x = e.target.closest && e.target.closest('.sheet > .wclose'); if (x) { const md = x.closest('.modal'); if (md) md.classList.remove('on'); } });
