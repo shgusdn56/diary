@@ -1,0 +1,36 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function signed() { return request.auth != null && request.auth.token.email_verified == true; }
+    function me() { return request.auth.token.email; }
+    function isCreator() { return signed() && me() == 'shgusdn56@gmail.com'; }
+    function space(s) { return get(/databases/$(database)/documents/spaces/$(s)).data; }
+    function role(s) { return space(s).roles.get(me(), ''); }
+
+    // 새 일지를 만들 수 있는 메일 목록 (제작자만 고침)
+    match /config/{d} {
+      allow read: if signed();
+      allow write: if isCreator();
+    }
+    // 일지 공간: 초대된 메일만 보고, 주인만 초대·설정을 바꿔요
+    match /spaces/{s} {
+      allow read: if signed() && me() in resource.data.members;
+      allow create: if signed() && request.resource.data.owner == request.auth.uid
+        && request.resource.data.roles[me()] == 'owner'
+        && (isCreator() || me() in get(/databases/$(database)/documents/config/allow).data.emails);
+      allow update, delete: if signed() && resource.data.owner == request.auth.uid;
+
+      match /{rest=**} {
+        allow read: if signed() && role(s) != '';
+        allow write: if signed() && role(s) in ['owner', 'edit'];
+      }
+      match /profiles/{u} {
+        allow write: if signed() && request.auth.uid == u && role(s) != '';
+      }
+    }
+    // 나만 보는 칸 (일지 공간마다 따로)
+    match /private/{u}/{rest=**} {
+      allow read, write: if signed() && request.auth.uid == u;
+    }
+  }
+}

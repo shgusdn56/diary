@@ -1,0 +1,167 @@
+// 생활일지 웹앱 연결 코드
+// 일지 화면 코드는 Claude 아티팩트에서 쓰던 그대로 두고, 아티팩트가 주던 저장(db)·사용자(user)·파일 저장(downloads)
+// 기능을 Firebase로 똑같이 흉내 내요. 로그인과 '어느 일지 공간을 열지'도 여기서 정해요.
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+import { getAuth, GoogleAuthProvider, signInWithCredential, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+import {
+  initializeFirestore, persistentLocalCache, persistentMultipleTabManager,
+  doc, collection, getDoc, getDocs, setDoc, updateDoc, deleteDoc, addDoc, onSnapshot,
+  query, where, orderBy, limit, deleteField, FieldPath
+} from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+
+const CREATOR_EMAIL = 'shgusdn56@gmail.com';
+const CLIENT_ID = '500724626014-2767hjbbl5fgd88skef9rdubqi4sr2l2.apps.googleusercontent.com';
+const app = initializeApp({
+  apiKey: "AIzaSyCCWE99k_oUukdtAuyWWqy2V3l1oMu2h7Y",
+  authDomain: "life-diary-1c3b8.firebaseapp.com",
+  projectId: "life-diary-1c3b8",
+  storageBucket: "life-diary-1c3b8.firebasestorage.app",
+  messagingSenderId: "500724626014",
+  appId: "1:500724626014:web:d429923495cd82e663bacf"
+});
+const auth = getAuth(app);
+let fs;
+try { fs = initializeFirestore(app, { ignoreUndefinedProperties: true, localCache: persistentLocalCache({ tabManager: persistentMultipleTabManager() }) }); }
+catch (e) { fs = initializeFirestore(app, { ignoreUndefinedProperties: true }); }
+
+const gate = document.getElementById('gate'), gMsg = document.getElementById('gateMsg');
+const showGate = (msg, withBtn) => { gate.hidden = false; gMsg.textContent = msg || ''; document.getElementById('gbtn').hidden = !withBtn; document.getElementById('gOut').hidden = !auth.currentUser; };
+
+// ── 로그인: 페이지 안에서 바로 받아요(다른 주소로 넘어가지 않아 휴대폰 브라우저에서도 막히지 않음)
+const gsiReady = () => new Promise((ok) => { const t = setInterval(() => { if (window.google && google.accounts && google.accounts.id) { clearInterval(t); ok(); } }, 100); });
+gsiReady().then(() => {
+  google.accounts.id.initialize({ client_id: CLIENT_ID, ux_mode: 'popup', use_fedcm_for_prompt: true,
+    callback: async (r) => { try { gMsg.textContent = '로그인 중…'; await signInWithCredential(auth, GoogleAuthProvider.credential(r.credential)); } catch (e) { gMsg.textContent = '로그인하지 못했어요: ' + (e.code || e.message); } } });
+  google.accounts.id.renderButton(document.getElementById('gbtn'), { theme: 'filled_blue', size: 'large', shape: 'pill', text: 'signin_with', locale: 'ko' });
+});
+window.__logout = async () => { try { if (window.google) google.accounts.id.disableAutoSelect(); } catch (e) {} await signOut(auth); location.reload(); };
+document.getElementById('gOut').onclick = () => window.__logout();
+
+// ── 일지 공간: 일지 하나(내 생활일지, 서식 받은 분의 일지 등)가 spaces/{id} 아래에 통째로 들어가요
+let U = null, SID = null, SPACE = null;
+async function pickSpace(u) {
+  const email = u.email;
+  const qs = await getDocs(query(collection(fs, 'spaces'), where('members', 'array-contains', email)));
+  const list = qs.docs.map(d => ({ id: d.id, ...d.data() }));
+  const want = new URLSearchParams(location.search).get('s') || (() => { try { return localStorage.getItem('diary.space'); } catch (e) { return null; } })();
+  let sp = list.find(x => x.id === want) || list.find(x => x.owner === u.uid) || list[0];
+  if (!sp) {
+    let allowed = email === CREATOR_EMAIL;
+    if (!allowed) { try { const a = await getDoc(doc(fs, 'config', 'allow')); allowed = a.exists() && (a.data().emails || []).includes(email); } catch (e) {} }
+    if (!allowed) return null;
+    const ref = doc(collection(fs, 'spaces'));
+    const data = { owner: u.uid, ownerEmail: email, members: [email], roles: { [email]: 'owner' }, created: Date.now() };
+    await setDoc(ref, data);
+    sp = { id: ref.id, ...data };
+  }
+  try { localStorage.setItem('diary.space', sp.id); } catch (e) {}
+  window.__spaces = list.length ? list : [sp];
+  return sp;
+}
+
+// ── 아티팩트 저장(db)과 같은 모양으로: 경로는 spaces/{id}/… 아래로, 'data/users/{나}/…'(나만 보는 칸)는 private/{나}/spaces/{id}/… 로
+const full = (p) => {
+  p = String(p).replace(/^\/+|\/+$/g, '');
+  const m = p.match(/^data\/users\/([^/]+)(?:\/(.*))?$/);
+  if (m) { const who = m[1] === 'me' ? U.uid : m[1]; return `private/${who}/spaces/${SID}` + (m[2] ? '/' + m[2] : ''); }
+  return `spaces/${SID}/${p}`;
+};
+const clean = (x) => { if (Array.isArray(x)) return x.map(clean); if (x && typeof x === 'object' && !(x instanceof Date)) { const o = {}; for (const [k, v] of Object.entries(x)) { if (v === undefined) continue; o[k] = clean(v); } return o; } return x; };
+const dsnap = (s) => ({ exists: s.exists(), id: s.id, data: () => s.data(), metadata: { fromCache: s.metadata.fromCache, hasPendingWrites: s.metadata.hasPendingWrites } });
+const qsnap = (s) => {
+  const docs = s.docs.map(d => ({ id: d.id, exists: true, data: () => d.data() }));
+  return { docs, size: docs.length, empty: !docs.length, forEach: (f) => docs.forEach(f),
+    docChanges: () => s.docChanges().map(c => ({ type: c.type, doc: { id: c.doc.id, exists: c.type !== 'removed', data: () => c.doc.data() } })),
+    metadata: { fromCache: s.metadata.fromCache, hasPendingWrites: s.metadata.hasPendingWrites } };
+};
+const docApi = (p) => {
+  const ref = () => doc(fs, full(p));
+  return {
+    id: String(p).split('/').pop(), path: p,
+    get: async () => dsnap(await getDoc(ref())),
+    set: async (x, opt) => { await setDoc(ref(), clean(x), opt && opt.merge ? { merge: true } : {}); },
+    // 아티팩트의 update는 맨 위 칸 단위로 통째로 바꿔요(점이 든 이름도 그대로) — 문서가 없으면 새로 만들어요
+    update: async (x) => {
+      const ent = Object.entries(clean(x || {}));
+      if (!ent.length) return;
+      const args = []; for (const [k, v] of ent) { args.push(new FieldPath(k), v && typeof v === 'object' && v.__delete__ ? deleteField() : v); }
+      try { await updateDoc(ref(), ...args); }
+      catch (e) { if (e && e.code === 'not-found') { const o = {}; for (const [k, v] of ent) if (!(v && typeof v === 'object' && v.__delete__)) o[k] = v; await setDoc(ref(), o, { merge: true }); } else throw e; }
+    },
+    delete: async () => { await deleteDoc(ref()); },
+    onSnapshot: (cb, err) => onSnapshot(ref(), { includeMetadataChanges: false }, (s) => cb(dsnap(s)), (e) => { console.warn('[db]', p, e && e.code); if (err) err(e); }),
+    collection: (c) => collApi(`${p}/${c}`)
+  };
+};
+const collApi = (p, cons = []) => {
+  const q = () => cons.length ? query(collection(fs, full(p)), ...cons) : collection(fs, full(p));
+  return {
+    path: p,
+    doc: (id) => docApi(`${p}/${id}`),
+    where: (f, op, v) => collApi(p, [...cons, where(f, op === '==' || op === 'eq' ? '==' : op, v)]),
+    orderBy: (f, dir) => collApi(p, [...cons, orderBy(f, dir || 'asc')]),
+    limit: (n) => collApi(p, [...cons, limit(n)]),
+    get: async () => qsnap(await getDocs(q())),
+    add: async (x) => { const r = await addDoc(collection(fs, full(p)), clean(x)); return { id: r.id }; },
+    onSnapshot: (cb, err) => onSnapshot(q(), (s) => cb(qsnap(s)), (e) => { console.warn('[db]', p, e && e.code); if (err) err(e); })
+  };
+};
+const db = { doc: docApi, collection: (p) => collApi(p) };
+
+// ── 사용자(user): 누가 열었는지, 주인인지, 고칠 수 있는지, 이름
+const profCache = {};
+const user = {
+  id: async () => U.uid,
+  me: async () => ({ id: U.uid, name: U.displayName || '', email: U.email }),
+  email: async () => U.email,
+  isOwner: async () => SPACE.owner === U.uid,
+  canEdit: async () => SPACE.owner === U.uid,
+  can: async (k) => k === 'data.write' ? ['owner', 'edit'].includes((SPACE.roles || {})[U.email]) : null,
+  profiles: async (ids) => {
+    const out = {};
+    await Promise.all([...new Set(ids || [])].filter(Boolean).map(async (id) => {
+      if (!profCache[id]) { try { const s = await getDoc(doc(fs, `spaces/${SID}/profiles/${id}`)); profCache[id] = s.exists() ? s.data() : { name: '' }; } catch (e) { profCache[id] = { name: '' }; } }
+      out[id] = profCache[id];
+    }));
+    return out;
+  },
+  search: async () => []
+};
+// ── 파일 저장(downloads): 휴대폰·컴퓨터에 파일로 내려받기
+const downloads = {
+  save: async ({ filename, data }) => {
+    const blob = data instanceof Blob ? data : new Blob([data]);
+    const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = filename || 'file';
+    document.body.appendChild(a); a.click(); setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 4000);
+  }
+};
+const caps = { db, user, downloads };
+window.claude = { use: async (n) => caps[n] || null };
+
+// ── 일지 화면 코드 실행: 로그인과 일지 공간이 정해진 뒤에 원래 순서대로 실행해요
+let started = false;
+function runApp() {
+  if (started) return; started = true;
+  document.querySelectorAll('script[type="text/x-app"]').forEach((old) => {
+    const s = document.createElement('script'); s.textContent = old.textContent; old.replaceWith(s);
+  });
+  document.dispatchEvent(new Event('DOMContentLoaded'));
+}
+
+onAuthStateChanged(auth, async (u) => {
+  if (!u) { showGate('Google 계정으로 로그인해 주세요.', true); return; }
+  U = u;
+  showGate('일지를 여는 중…', false);
+  try {
+    SPACE = await pickSpace(u);
+    if (!SPACE) { showGate(`${u.email} 계정은 아직 초대받지 않았어요. 일지 주인에게 초대를 부탁해 주세요.`, false); return; }
+    SID = SPACE.id;
+    try { await setDoc(doc(fs, `spaces/${SID}/profiles/${u.uid}`), { name: u.displayName || u.email.split('@')[0], email: u.email }, { merge: true }); } catch (e) {}
+    window.__CREATOR = u.email === CREATOR_EMAIL && SPACE.owner === u.uid;
+    gate.hidden = true;
+    runApp();
+  } catch (e) {
+    console.error(e);
+    showGate('일지를 열지 못했어요: ' + (e.code || e.message) + ' — 인터넷 연결을 확인하고 새로고침해 주세요.', false);
+  }
+});
