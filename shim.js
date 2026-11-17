@@ -66,6 +66,28 @@ async function pickSpace(u) {
   return sp;
 }
 
+// ── 연결 진단: 일지를 연 뒤 12초가 지나도 서버에서 아무것도 못 받으면, 어디서 막혔는지 화면 아래에 보여 줘요
+const DIAG = { ok: false, errs: [], err(p, e) { console.warn('[db]', p, e && e.code); if (this.errs.length < 6) this.errs.push(`${p}: ${(e && (e.code || e.message)) || e}`); } };
+async function runDiag() {
+  if (DIAG.ok || document.getElementById('wDiag')) return;
+  const box = document.createElement('div'); box.id = 'wDiag';
+  box.style.cssText = 'position:fixed;left:8px;right:8px;bottom:calc(8px + env(safe-area-inset-bottom));z-index:2147483002;background:#fff8e1;color:#5f4300;border:1px solid #f0c36d;border-radius:12px;padding:10px 12px;font:12.5px/1.5 system-ui,sans-serif;white-space:pre-wrap;word-break:break-all;max-height:45vh;overflow:auto';
+  const L = ['연결 진단 (이 화면을 캡처해 Claude에게 보내 주세요)', `시각 ${new Date().toLocaleString('ko-KR')} · 온라인 ${navigator.onLine} · ${navigator.userAgent.replace(/^.*?\) /, '').slice(0, 60)}`];
+  const draw = () => { box.textContent = L.join('\n'); };
+  const x = document.createElement('button'); x.textContent = '닫기'; x.style.cssText = 'float:right;margin-left:8px;border:1px solid #f0c36d;background:#fff;border-radius:8px;padding:2px 8px';
+  x.onclick = () => box.remove();
+  draw(); box.prepend(x); document.body.appendChild(box);
+  const add = (t) => { L.push(t); draw(); box.prepend(x); };
+  if (DIAG.errs.length) add('받기 오류: ' + DIAG.errs.join(' / '));
+  try { const c = await fetch('https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js', { cache: 'no-store' }); add('Firebase 파일 서버: ' + c.status); } catch (e) { add('Firebase 파일 서버: 연결 실패 ' + e.message); }
+  try {
+    const t = await U.getIdToken(), t0 = Date.now(), ac = new AbortController(); setTimeout(() => ac.abort(), 15000);
+    const r = await fetch(`https://firestore.googleapis.com/v1/projects/life-diary-1c3b8/databases/(default)/documents/spaces/${SID}`, { headers: { Authorization: 'Bearer ' + t }, signal: ac.signal });
+    add(`일지 서버 직접 읽기: ${r.status} (${Date.now() - t0}ms)` + (r.ok ? '' : ' ' + (await r.text()).replace(/\s+/g, ' ').slice(0, 220)));
+  } catch (e) { add('일지 서버 직접 읽기: 실패 ' + (e.name === 'AbortError' ? '15초 안에 대답 없음' : e.message)); }
+  add('실시간 연결로 받은 것: ' + (DIAG.ok ? '있음' : '없음') + (DIAG.errs.length ? ' · 오류 ' + DIAG.errs.length + '건' : ''));
+}
+
 // ── 아티팩트 저장(db)과 같은 모양으로: 경로는 spaces/{id}/… 아래로, 'data/users/{나}/…'(나만 보는 칸)는 private/{나}/s_{id}/… 로
 const full = (p) => {
   p = String(p).replace(/^\/+|\/+$/g, '');
@@ -96,7 +118,7 @@ const docApi = (p) => {
       catch (e) { if (e && e.code === 'not-found') { const o = {}; for (const [k, v] of ent) if (!(v && typeof v === 'object' && v.__delete__)) o[k] = v; await setDoc(ref(), o, { merge: true }); } else throw e; }
     },
     delete: async () => { await deleteDoc(ref()); },
-    onSnapshot: (cb, err) => onSnapshot(ref(), { includeMetadataChanges: false }, (s) => cb(dsnap(s)), (e) => { console.warn('[db]', p, e && e.code); if (err) err(e); }),
+    onSnapshot: (cb, err) => onSnapshot(ref(), { includeMetadataChanges: false }, (s) => { DIAG.ok = true; cb(dsnap(s)); }, (e) => { DIAG.err(p, e); if (err) err(e); }),
     collection: (c) => collApi(`${p}/${c}`)
   };
 };
@@ -110,7 +132,7 @@ const collApi = (p, cons = []) => {
     limit: (n) => collApi(p, [...cons, limit(n)]),
     get: async () => qsnap(await getDocs(q())),
     add: async (x) => { const r = await addDoc(collection(fs, full(p)), clean(x)); return { id: r.id }; },
-    onSnapshot: (cb, err) => onSnapshot(q(), (s) => cb(qsnap(s)), (e) => { console.warn('[db]', p, e && e.code); if (err) err(e); })
+    onSnapshot: (cb, err) => onSnapshot(q(), (s) => { DIAG.ok = true; cb(qsnap(s)); }, (e) => { DIAG.err(p, e); if (err) err(e); })
   };
 };
 const db = { doc: docApi, collection: (p) => collApi(p) };
@@ -172,6 +194,7 @@ onAuthStateChanged(auth, async (u) => {
     gate.hidden = true;
     window.__web = { fs, auth, U: u, SID, SPACE, profCache, creator: u.email === CREATOR_EMAIL };
     runApp();
+    setTimeout(runDiag, 12000);
     import('./web.js').catch((e) => console.error('[web]', e));
   } catch (e) {
     console.error(e);

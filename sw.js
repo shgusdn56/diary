@@ -1,6 +1,6 @@
 // 빠르게 열기: 사이트 파일과 Firebase 프로그램을 이 기기에 저장해 두고 바로 열어요.
-// 새 버전은 뒤에서 받아 두고, 받았으면 화면에 '새 버전' 알림을 띄워요(다음 새로고침부터 적용).
-const C = 'diary-v1';
+// 열 때 새 파일을 먼저 받고(느리면 저장해 둔 걸로), 늦게 받은 새 버전은 '새 버전' 알림을 띄워요.
+const C = 'diary-v1'; // sw 2
 self.addEventListener('install', () => self.skipWaiting());
 self.addEventListener('activate', (e) => e.waitUntil(self.clients.claim()));
 let tm = null;
@@ -17,6 +17,7 @@ self.addEventListener('fetch', (e) => {
     return;
   }
   const key = new Request(u.origin + u.pathname);
+  // 새 파일을 먼저 받아요(4초 안에 못 받으면 저장해 둔 걸로 열고, 늦게 오면 '새 버전' 알림)
   e.respondWith(caches.open(C).then(async (c) => {
     const hit = await c.match(key);
     const net = fetch(r, { cache: 'no-store' }).then(async (res) => {
@@ -24,12 +25,14 @@ self.addEventListener('fetch', (e) => {
         const body = await res.clone().text();
         const old = hit ? await hit.clone().text().catch(() => null) : null;
         await c.put(key, new Response(body, { headers: res.headers }));
-        if (hit && old !== body) notify();
+        if (late && old !== null && old !== body) notify();
       }
       return res;
-    }).catch(() => hit || Response.error());
-    if (hit) { e.waitUntil(net.catch(() => {})); return hit; }
-    return net;
+    });
+    let late = false;
+    if (!hit) return net;
+    e.waitUntil(net.catch(() => {}));
+    return Promise.race([net.catch(() => hit), new Promise((ok) => setTimeout(() => { late = true; ok(hit); }, 4000))]);
   }));
 });
 
