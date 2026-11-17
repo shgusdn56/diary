@@ -133,7 +133,7 @@ $('wImpFile').addEventListener('change', async (e) => {
 
 // ── 휴대폰 알림(4단계): 이 기기에서 알림 받기, 수정 알림, 오늘 일정 알림 — 서버(Cloud Functions)가 보내요
 const CREATOR = !!W.creator;
-const crTag = () => `<em class="otag">${esc((U.displayName || '제작자').trim())}님 전용</em>`;
+const crTag = () => '<em class="otag">노현우님 전용</em>';
 const st2 = document.createElement('style');
 st2.textContent = `#wNotiModal .aubox .aur, #wPdfModal .aubox .aur { margin-top: 6px; }
 #wNotiModal .aur input[type=time], #wPdfModal .aur input[type=time], #wPdfModal .aur select { font: inherit; font-size: 14px; height: 34px; padding: 0 8px; border-radius: 10px; border: 1px solid var(--k9fb2d4, #c9d3e6); background: transparent; color: inherit; }
