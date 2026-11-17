@@ -8,6 +8,8 @@ s = re.sub(r'<!--\s*Diary template.*?-->', '', s, count=1, flags=re.S)
 i0 = s.index('const TEMPLATE = true;')  # 첫 번째가 실제 정의(뒤쪽은 문자열·검사용)
 assert s.rfind('\n', 0, i0) < i0 and s[s.rfind('\n', 0, i0)+1:i0].strip() == ''
 s = s.replace('const TEMPLATE = true;', 'const TEMPLATE = !window.__CREATOR; // 웹앱: 제작자(노현우) 본인 일지에서만 제작자 기능', 1)
+assert s.count("const DEF_LABEL0 = '메모';") == 1
+s = s.replace("const DEF_LABEL0 = '메모';", "const DEF_LABEL0 = window.__DEF_LABEL || '메모'; // 웹앱: 일지 공간마다 정한 아래 칸 기본 이름", 1)
 main = '<script>\n(() => {\n  const WD = '
 assert s.count(main) == 1
 s = s.replace(main, '<script type="text/x-app">\n(() => {\n  const WD = ', 1)

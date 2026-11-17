@@ -59,11 +59,11 @@ async function pickSpace(u) {
   return sp;
 }
 
-// ── 아티팩트 저장(db)과 같은 모양으로: 경로는 spaces/{id}/… 아래로, 'data/users/{나}/…'(나만 보는 칸)는 private/{나}/spaces/{id}/… 로
+// ── 아티팩트 저장(db)과 같은 모양으로: 경로는 spaces/{id}/… 아래로, 'data/users/{나}/…'(나만 보는 칸)는 private/{나}/s_{id}/… 로
 const full = (p) => {
   p = String(p).replace(/^\/+|\/+$/g, '');
   const m = p.match(/^data\/users\/([^/]+)(?:\/(.*))?$/);
-  if (m) { const who = m[1] === 'me' ? U.uid : m[1]; return `private/${who}/spaces/${SID}` + (m[2] ? '/' + m[2] : ''); }
+  if (m) { const who = m[1] === 'me' ? U.uid : m[1]; return `private/${who}/s_${SID}` + (m[2] ? '/' + m[2] : ''); } // 칸 수(짝·홀)를 그대로 지켜요
   return `spaces/${SID}/${p}`;
 };
 const clean = (x) => { if (Array.isArray(x)) return x.map(clean); if (x && typeof x === 'object' && !(x instanceof Date)) { const o = {}; for (const [k, v] of Object.entries(x)) { if (v === undefined) continue; o[k] = clean(v); } return o; } return x; };
@@ -158,6 +158,7 @@ onAuthStateChanged(auth, async (u) => {
     SID = SPACE.id;
     try { const pr = await getDoc(doc(fs, `spaces/${SID}/profiles/${u.uid}`)); if (!pr.exists() || !pr.data().set) await setDoc(doc(fs, `spaces/${SID}/profiles/${u.uid}`), { name: u.displayName || u.email.split('@')[0], email: u.email }, { merge: true }); } catch (e) {} // 직접 정한 이름(set)은 그대로 둬요
     window.__CREATOR = u.email === CREATOR_EMAIL && SPACE.owner === u.uid;
+    if (typeof SPACE.memoLabel === 'string' && SPACE.memoLabel) window.__DEF_LABEL = SPACE.memoLabel.slice(0, 12);
     gate.hidden = true;
     window.__web = { fs, auth, U: u, SID, SPACE, profCache };
     runApp();
