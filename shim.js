@@ -170,7 +170,7 @@ onAuthStateChanged(auth, async (u) => {
     window.__CREATOR = u.email === CREATOR_EMAIL && SPACE.owner === u.uid;
     if (typeof SPACE.memoLabel === 'string' && SPACE.memoLabel) window.__DEF_LABEL = SPACE.memoLabel.slice(0, 12);
     gate.hidden = true;
-    window.__web = { fs, auth, U: u, SID, SPACE, profCache };
+    window.__web = { fs, auth, U: u, SID, SPACE, profCache, creator: u.email === CREATOR_EMAIL };
     runApp();
     import('./web.js').catch((e) => console.error('[web]', e));
   } catch (e) {

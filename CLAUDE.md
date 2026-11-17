@@ -8,6 +8,9 @@
 - `shim.js`: Google 로그인, 일지 공간 고르기, Firestore를 일지 코드가 쓰던 저장 방식(db/user/downloads)으로 연결.
 - `web.js`: 웹앱 전용 화면(공유·초대, 내 이름, 로그아웃, 옮기기 파일 가져오기).
 - `sw.js`: 파일을 기기에 저장해 빠르게 열고, 새 버전이 오면 '새 버전' 알림.
-- `firestore.rules`: Firebase 콘솔 → Firestore → 규칙에 붙여 넣는 보안 규칙(바꾸면 사용자에게 붙여 넣기를 부탁).
+- `firestore.rules`: Firestore 보안 규칙. 자동 올리기가 연결된 뒤로는 main에 올리면 자동 적용(그 전에는 콘솔에 붙여 넣기를 부탁).
+- `functions/`: 서버 작업(Cloud Functions) — 수정 알림 푸시, 오늘 일정 알림, PDF 백업 메일(Gmail 앱 비밀번호, `secret/mail`), 공휴일 채우기, `jobs` 컬렉션(테스트·지금 보내기).
+  - main에 올리면 `.github/workflows/firebase-deploy.yml`이 Firebase에 자동으로 올려요. 처음 한 번 `tools/setup-cloud.sh`를 Cloud Shell에서 실행해야 해요.
+  - 시험: 에뮬레이터(`firebase emulators:exec --only firestore`)에서 FCM·메일만 가짜로 바꿔 돌려 볼 수 있어요.
 - 디자인·기능은 기존과 같은 모양을 유지하고, 제작자 전용 기능은 '노현우님 전용'으로 표시해요.
 - 확인한 것만 됐다고 말해요. 실제 휴대폰에서 못 해 본 건 그렇다고 말해요.

@@ -32,3 +32,21 @@ self.addEventListener('fetch', (e) => {
     return net;
   }));
 });
+
+// 휴대폰 알림(푸시): 서버가 보낸 제목·내용을 알림으로 띄우고, 누르면 일지를 열어요
+self.addEventListener('push', (e) => {
+  let p = {}; try { p = e.data ? e.data.json() : {}; } catch (er) { p = { body: e.data ? e.data.text() : '' }; }
+  const d = p.data || p.notification || p;
+  const opt = { body: d.body || '', icon: 'icon-192.png', badge: 'icon-192.png', data: { url: d.url || self.registration.scope } };
+  if (d.tag) { opt.tag = d.tag; opt.renotify = true; }
+  e.waitUntil(self.registration.showNotification(d.title || '생활일지', opt));
+});
+self.addEventListener('notificationclick', (e) => {
+  e.notification.close();
+  const url = (e.notification.data && e.notification.data.url) || self.registration.scope;
+  e.waitUntil(self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then((cs) => {
+    const c = cs.find((x) => x.url.startsWith(self.registration.scope));
+    if (c) return c.focus().then((w) => (w && w.navigate && !w.url.includes(new URL(url).search) ? w.navigate(url) : w)).catch(() => self.clients.openWindow(url));
+    return self.clients.openWindow(url);
+  }));
+});

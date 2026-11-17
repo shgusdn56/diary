@@ -27,6 +27,24 @@ service cloud.firestore {
       match /profiles/{u} {
         allow write: if signed() && request.auth.uid == u && role(s) != '';
       }
+      // 내 알림 설정(수정 알림·오늘 일정 알림): '보기만' 권한이어도 내 것은 고칠 수 있어요
+      match /notify/{u} {
+        allow write: if signed() && request.auth.uid == u && role(s) != '';
+      }
+    }
+    // 서버 작업 부탁(테스트 알림, PDF 테스트 메일, 공휴일 채우기) — 만든 사람만 결과를 봐요
+    match /jobs/{j} {
+      allow read: if signed() && resource.data.by == request.auth.uid;
+      allow create: if signed() && request.resource.data.by == request.auth.uid
+        && request.resource.data.keys().hasOnly(['kind', 'sid', 'by', 'at', 'test'])
+        && ((request.resource.data.kind in ['test-edit', 'test-morning'] && role(request.resource.data.sid) != '')
+          || (request.resource.data.kind == 'pdf' && request.resource.data.test == true && space(request.resource.data.sid).owner == request.auth.uid)
+          || (request.resource.data.kind == 'holidays' && isCreator()));
+    }
+    // 메일 보내는 계정(앱 비밀번호): 제작자만 쓰고, 아무도 읽지 못해요(서버만 읽어요)
+    match /secret/{d} {
+      allow read: if false;
+      allow write: if isCreator();
     }
     // 나만 보는 칸 (일지 공간마다 따로)
     match /private/{u}/{rest=**} {
