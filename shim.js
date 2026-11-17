@@ -69,7 +69,7 @@ async function pickSpace(u) {
 // ── 연결 진단: 일지를 연 뒤 12초가 지나도 서버에서 아무것도 못 받으면, 어디서 막혔는지 화면 아래에 보여 줘요
 const DIAG = { ok: false, errs: [], err(p, e) { console.warn('[db]', p, e && e.code); if (this.errs.length < 6) this.errs.push(`${p}: ${(e && (e.code || e.message)) || e}`); } };
 async function runDiag() {
-  if (DIAG.ok || document.getElementById('wDiag')) return;
+  if ((DIAG.ok && !/[?&]diag/.test(location.search)) || document.getElementById('wDiag')) return;
   const box = document.createElement('div'); box.id = 'wDiag';
   box.style.cssText = 'position:fixed;left:8px;right:8px;bottom:calc(8px + env(safe-area-inset-bottom));z-index:2147483002;background:#fff8e1;color:#5f4300;border:1px solid #f0c36d;border-radius:12px;padding:10px 12px;font:12.5px/1.5 system-ui,sans-serif;white-space:pre-wrap;word-break:break-all;max-height:45vh;overflow:auto';
   const L = ['연결 진단 (이 화면을 캡처해 Claude에게 보내 주세요)', `시각 ${new Date().toLocaleString('ko-KR')} · 온라인 ${navigator.onLine} · ${navigator.userAgent.replace(/^.*?\) /, '').slice(0, 60)}`];
@@ -118,7 +118,7 @@ const docApi = (p) => {
       catch (e) { if (e && e.code === 'not-found') { const o = {}; for (const [k, v] of ent) if (!(v && typeof v === 'object' && v.__delete__)) o[k] = v; await setDoc(ref(), o, { merge: true }); } else throw e; }
     },
     delete: async () => { await deleteDoc(ref()); },
-    onSnapshot: (cb, err) => onSnapshot(ref(), { includeMetadataChanges: false }, (s) => { DIAG.ok = true; cb(dsnap(s)); }, (e) => { DIAG.err(p, e); if (err) err(e); }),
+    onSnapshot: (cb, err) => onSnapshot(ref(), { includeMetadataChanges: false }, (s) => { if (!s.metadata.fromCache) DIAG.ok = true; cb(dsnap(s)); }, (e) => { DIAG.err(p, e); if (err) err(e); }),
     collection: (c) => collApi(`${p}/${c}`)
   };
 };
@@ -132,7 +132,7 @@ const collApi = (p, cons = []) => {
     limit: (n) => collApi(p, [...cons, limit(n)]),
     get: async () => qsnap(await getDocs(q())),
     add: async (x) => { const r = await addDoc(collection(fs, full(p)), clean(x)); return { id: r.id }; },
-    onSnapshot: (cb, err) => onSnapshot(q(), (s) => { DIAG.ok = true; cb(qsnap(s)); }, (e) => { DIAG.err(p, e); if (err) err(e); })
+    onSnapshot: (cb, err) => onSnapshot(q(), (s) => { if (!s.metadata.fromCache) DIAG.ok = true; cb(qsnap(s)); }, (e) => { DIAG.err(p, e); if (err) err(e); })
   };
 };
 const db = { doc: docApi, collection: (p) => collApi(p) };
@@ -194,7 +194,7 @@ onAuthStateChanged(auth, async (u) => {
     gate.hidden = true;
     window.__web = { fs, auth, U: u, SID, SPACE, profCache, creator: u.email === CREATOR_EMAIL };
     runApp();
-    setTimeout(runDiag, 12000);
+    setTimeout(runDiag, /[?&]diag/.test(location.search) ? 3000 : 12000);
     import('./web.js').catch((e) => console.error('[web]', e));
   } catch (e) {
     console.error(e);
