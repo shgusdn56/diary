@@ -2,7 +2,7 @@
 #  - 서식 코드는 그대로 두고, 로그인 화면과 Firebase 연결(shim.js)을 끼워 넣어요
 #  - 화면 코드는 로그인과 일지 공간이 정해진 뒤에 실행되도록 type="text/x-app"으로 바꿔 둬요
 import re, sys
-src = sys.argv[1]; out = sys.argv[2] if len(sys.argv) > 2 else 'index.html'
+src = sys.argv[1] if len(sys.argv) > 1 else 'src/app.html'; out = sys.argv[2] if len(sys.argv) > 2 else 'index.html'
 s = open(src, encoding='utf-8').read()
 s = re.sub(r'<!--\s*Diary template.*?-->', '', s, count=1, flags=re.S)
 i0 = s.index('const TEMPLATE = true;')  # 첫 번째가 실제 정의(뒤쪽은 문자열·검사용)
