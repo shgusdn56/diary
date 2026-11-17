@@ -13,7 +13,11 @@ s = s.replace("const DEF_LABEL0 = '메모';", "const DEF_LABEL0 = window.__DEF_L
 main = '<script>\n(() => {\n  const WD = '
 assert s.count(main) == 1
 s = s.replace(main, '<script type="text/x-app">\n(() => {\n  const WD = ', 1)
-head_add = '''<link rel="manifest" href="manifest.webmanifest">
+head_add = '''<link rel="modulepreload" href="shim.js">
+<link rel="modulepreload" href="https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js">
+<link rel="modulepreload" href="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js">
+<link rel="modulepreload" href="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js">
+<link rel="manifest" href="manifest.webmanifest">
 <meta name="theme-color" content="#1f5bc4">
 <link rel="icon" href="icon-192.png">
 <link rel="apple-touch-icon" href="icon-192.png">
@@ -33,7 +37,7 @@ s = s.replace('</head>', head_add + '</head>', 1)
 m = re.search(r'<body[^>]*>', s)
 gate = '\n<div id="gate"><div class="gcard"><h1>생활일지</h1><p id="gateMsg">불러오는 중…</p><div id="gbtn" hidden></div><button id="gOut" hidden>다른 계정으로 로그인</button></div></div>\n'
 s = s[:m.end()] + gate + s[m.end():]
-tail = '<script src="https://accounts.google.com/gsi/client" async></script>\n<script type="module" src="shim.js"></script>\n<script>if (\'serviceWorker\' in navigator) navigator.serviceWorker.register(\'sw.js\').catch(() => {});</script>\n'
+tail = '<script src="https://accounts.google.com/gsi/client" async></script>\n<script type="module" src="shim.js"></script>\n<script>if (\'serviceWorker\' in navigator) { navigator.serviceWorker.register(\'sw.js\').catch(() => {}); navigator.serviceWorker.addEventListener(\'message\', (e) => { if (e.data !== \'diary-update\' || document.getElementById(\'wNew\')) return; const b = document.createElement(\'button\'); b.id = \'wNew\'; b.type = \'button\'; b.textContent = \'새 버전이 있어요 · 눌러서 새로고침\'; b.style.cssText = \'position:fixed;left:50%;transform:translateX(-50%);bottom:calc(16px + env(safe-area-inset-bottom));z-index:2147483001;border:0;border-radius:20px;padding:10px 18px;background:#1f5bc4;color:#fff;font:600 14px system-ui,sans-serif;box-shadow:0 4px 14px rgba(0,0,0,.2)\'; b.onclick = () => location.reload(); document.body.appendChild(b); }); }</script>\n'
 i = s.rindex('</body>')
 s = s[:i] + tail + s[i:]
 open(out, 'w', encoding='utf-8').write(s)

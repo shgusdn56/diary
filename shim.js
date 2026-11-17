@@ -39,6 +39,13 @@ document.getElementById('gOut').onclick = () => window.__logout();
 
 // ── 일지 공간: 일지 하나(내 생활일지, 서식 받은 분의 일지 등)가 spaces/{id} 아래에 통째로 들어가요
 let U = null, SID = null, SPACE = null;
+const SPKEY = (u) => 'diary.spaceCache.' + u.uid;
+function cachedSpace(u) {
+  try { const want = new URLSearchParams(location.search).get('s'); const c = JSON.parse(localStorage.getItem(SPKEY(u)) || 'null'); if (c && c.id && (!want || want === c.id) && (c.members || []).includes(u.email)) return c; } catch (e) {}
+  return null;
+}
+const roleKey = (sp) => Object.entries(sp.roles || {}).sort().map((x) => x.join(':')).join(',');
+const rememberSpace = (u, sp) => { try { localStorage.setItem(SPKEY(u), JSON.stringify(sp)); localStorage.setItem('diary.space', sp.id); } catch (e) {} };
 async function pickSpace(u) {
   const email = u.email;
   const qs = await getDocs(query(collection(fs, 'spaces'), where('members', 'array-contains', email)));
@@ -54,7 +61,7 @@ async function pickSpace(u) {
     await setDoc(ref, data);
     sp = { id: ref.id, ...data };
   }
-  try { localStorage.setItem('diary.space', sp.id); } catch (e) {}
+  rememberSpace(u, sp);
   window.__spaces = list.length ? list : [sp];
   return sp;
 }
@@ -153,10 +160,13 @@ onAuthStateChanged(auth, async (u) => {
   U = u;
   showGate('일지를 여는 중…', false);
   try {
-    SPACE = await pickSpace(u);
+    const cached = cachedSpace(u);
+    SPACE = cached || await pickSpace(u);
     if (!SPACE) { showGate(`${u.email} 계정은 아직 초대받지 않았어요. 일지 주인에게 초대를 부탁해 주세요.`, false); return; }
     SID = SPACE.id;
-    try { const pr = await getDoc(doc(fs, `spaces/${SID}/profiles/${u.uid}`)); if (!pr.exists() || !pr.data().set) await setDoc(doc(fs, `spaces/${SID}/profiles/${u.uid}`), { name: u.displayName || u.email.split('@')[0], email: u.email }, { merge: true }); } catch (e) {} // 직접 정한 이름(set)은 그대로 둬요
+    // 뒤에서: 기억해 둔 공간이 아직 맞는지 확인(빠졌거나 권한이 바뀌었으면 다시 열기), 이름 저장
+    if (cached) pickSpace(u).then((sp) => { if (!sp || sp.id !== cached.id || roleKey(sp) !== roleKey(cached) || sp.memoLabel !== cached.memoLabel) location.reload(); }).catch(() => {});
+    (async () => { try { const pr = await getDoc(doc(fs, `spaces/${SID}/profiles/${u.uid}`)); if (!pr.exists() || !pr.data().set) await setDoc(doc(fs, `spaces/${SID}/profiles/${u.uid}`), { name: u.displayName || u.email.split('@')[0], email: u.email }, { merge: true }); } catch (e) {} })(); // 직접 정한 이름(set)은 그대로 둬요
     window.__CREATOR = u.email === CREATOR_EMAIL && SPACE.owner === u.uid;
     if (typeof SPACE.memoLabel === 'string' && SPACE.memoLabel) window.__DEF_LABEL = SPACE.memoLabel.slice(0, 12);
     gate.hidden = true;
