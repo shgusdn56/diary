@@ -25,13 +25,14 @@ li.ok { color:var(--ok); } li.bad { color:var(--bad); } li.wait { color:var(--mu
   <h1>생활일지</h1>
   <p class="lead">새 웹앱 연결 시험 화면이에요. 로그인과 저장이 되는지만 확인해요.</p>
   <div class="card">
-    <div class="row"><button id="login">Google로 로그인</button><button id="logout" class="sub" hidden>로그아웃</button></div>
+    <div class="row"><div id="gbtn"></div><button id="logout" class="sub" hidden>로그아웃</button></div>
     <ul id="log"><li class="wait">로그인 버튼을 눌러 주세요.</li></ul>
   </div>
 </main>
+<script src="https://accounts.google.com/gsi/client" async></script>
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
-import { getAuth, GoogleAuthProvider, signInWithPopup, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+import { getAuth, GoogleAuthProvider, signInWithCredential, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
 import { getFirestore, doc, setDoc, getDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 
 const firebaseConfig = {
@@ -46,14 +47,21 @@ const app = initializeApp(firebaseConfig), auth = getAuth(app), db = getFirestor
 const $ = (id) => document.getElementById(id), log = $('log');
 const say = (t, c) => { const li = document.createElement('li'); li.className = c; li.textContent = t; log.appendChild(li); };
 
-$('login').onclick = async () => {
-  try { await signInWithPopup(auth, new GoogleAuthProvider()); }
+// 로그인은 페이지 안에서 바로 받아요(다른 주소로 넘어가지 않아 휴대폰 브라우저에서도 막히지 않음)
+const CLIENT_ID = '500724626014-2767hjbbl5fgd88skef9rdubqi4sr2l2.apps.googleusercontent.com';
+const onToken = async (r) => {
+  try { await signInWithCredential(auth, GoogleAuthProvider.credential(r.credential)); }
   catch (e) { say('로그인 실패: ' + (e.code || e.message), 'bad'); }
 };
-$('logout').onclick = () => signOut(auth);
+const gsiReady = () => new Promise((ok) => { const t = setInterval(() => { if (window.google && google.accounts && google.accounts.id) { clearInterval(t); ok(); } }, 100); });
+gsiReady().then(() => {
+  google.accounts.id.initialize({ client_id: CLIENT_ID, callback: onToken, ux_mode: 'popup', use_fedcm_for_prompt: true });
+  google.accounts.id.renderButton($('gbtn'), { theme: 'filled_blue', size: 'large', shape: 'pill', text: 'signin_with', locale: 'ko' });
+});
+$('logout').onclick = () => { signOut(auth); if (window.google) google.accounts.id.disableAutoSelect(); };
 
 onAuthStateChanged(auth, async (u) => {
-  $('login').hidden = !!u; $('logout').hidden = !u;
+  $('gbtn').hidden = !!u; $('logout').hidden = !u;
   log.innerHTML = '';
   if (!u) { say('로그인 버튼을 눌러 주세요.', 'wait'); return; }
   say('로그인 성공: ' + u.email, 'ok');
