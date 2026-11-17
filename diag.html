@@ -39,7 +39,7 @@ async function run() {
   await step('일지가 여는 index.html', async () => { const r = await fetch('./?x=' + Date.now(), { cache: 'no-store' }); const t = await r.text(); const m = t.match(/const BUILD = (\d+)/); return `${r.status} · 판 ${m ? m[1] : '?'}`; });
   let A, Au, F;
   if (!(await step('Firebase 프로그램 받기', async () => { [A, Au, F] = await Promise.all([import(B + 'firebase-app.js'), import(B + 'firebase-auth.js'), import(B + 'firebase-firestore.js')]); }))) return;
-  const app = A.initializeApp({ apiKey: "AIzaSyCCWE99k_oUukdtAuyWWqy2V3l1oMu2h7Y", authDomain: "life-diary-1c3b8.firebaseapp.com", projectId: "life-diary-1c3b8", storageBucket: "life-diary-1c3b8.firebasestorage.app", messagingSenderId: "500724626014", appId: "1:500724626014:web:d429923495cd82e663bacf" }, 'diag' + Date.now());
+  const app = A.initializeApp({ apiKey: "AIzaSyCCWE99k_oUukdtAuyWWqy2V3l1oMu2h7Y", authDomain: "life-diary-1c3b8.firebaseapp.com", projectId: "life-diary-1c3b8", storageBucket: "life-diary-1c3b8.firebasestorage.app", messagingSenderId: "500724626014", appId: "1:500724626014:web:d429923495cd82e663bacf" });
   const auth = Au.getAuth(app);
   let u = null;
   if (!(await step('로그인 상태 확인', () => new Promise((ok) => { const un = Au.onAuthStateChanged(auth, (x) => { un(); u = x; ok(x ? '로그인됨' : '로그인 안 됨(일지에서 먼저 로그인해 주세요)'); }); }), 10000)) || !u) return;
