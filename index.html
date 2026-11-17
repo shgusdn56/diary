@@ -1,4 +1,74 @@
 <!doctype html>
-<html lang="ko"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>생활일지</title>
-<style>body{margin:0;font:16px/1.6 system-ui,sans-serif;display:grid;place-items:center;min-height:100vh;background:#f5f7fa;color:#1d2433}</style></head>
-<body><p>생활일지 웹앱 준비 중이에요.</p></body></html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>생활일지</title>
+<style>
+:root { --bg:#f5f7fa; --fg:#1d2433; --mut:#6b7385; --card:#fff; --line:#d5dae3; --acc:#1f5bc4; --ok:#1d7a3e; --bad:#b3261e; }
+@media (prefers-color-scheme: dark) { :root { --bg:#16191f; --fg:#e7eaf0; --mut:#9aa3b5; --card:#1f232b; --line:#343a46; --acc:#7da0ff; --ok:#6fd08f; --bad:#ff8a80; } }
+* { box-sizing:border-box; }
+body { margin:0; font:16px/1.6 system-ui,-apple-system,"Apple SD Gothic Neo","Noto Sans KR",sans-serif; background:var(--bg); color:var(--fg); padding:24px 16px; }
+main { max-width:520px; margin:0 auto; }
+h1 { font-size:22px; margin:0 0 4px; color:var(--acc); }
+p.lead { color:var(--mut); margin:0 0 20px; font-size:14px; }
+.card { background:var(--card); border:1px solid var(--line); border-radius:14px; padding:16px; margin-bottom:12px; }
+button { font:600 15px system-ui,sans-serif; padding:10px 16px; border-radius:22px; border:1px solid var(--acc); background:var(--acc); color:#fff; cursor:pointer; }
+button.sub { background:transparent; color:var(--acc); }
+.row { display:flex; gap:8px; flex-wrap:wrap; align-items:center; }
+ul { margin:8px 0 0; padding-left:20px; }
+li.ok { color:var(--ok); } li.bad { color:var(--bad); } li.wait { color:var(--mut); }
+</style>
+</head>
+<body>
+<main>
+  <h1>생활일지</h1>
+  <p class="lead">새 웹앱 연결 시험 화면이에요. 로그인과 저장이 되는지만 확인해요.</p>
+  <div class="card">
+    <div class="row"><button id="login">Google로 로그인</button><button id="logout" class="sub" hidden>로그아웃</button></div>
+    <ul id="log"><li class="wait">로그인 버튼을 눌러 주세요.</li></ul>
+  </div>
+</main>
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+import { getAuth, GoogleAuthProvider, signInWithPopup, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+import { getFirestore, doc, setDoc, getDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+
+const firebaseConfig = {
+  apiKey: "AIzaSyCCWE99k_oUukdtAuyWWqy2V3l1oMu2h7Y",
+  authDomain: "life-diary-1c3b8.firebaseapp.com",
+  projectId: "life-diary-1c3b8",
+  storageBucket: "life-diary-1c3b8.firebasestorage.app",
+  messagingSenderId: "500724626014",
+  appId: "1:500724626014:web:d429923495cd82e663bacf"
+};
+const app = initializeApp(firebaseConfig), auth = getAuth(app), db = getFirestore(app);
+const $ = (id) => document.getElementById(id), log = $('log');
+const say = (t, c) => { const li = document.createElement('li'); li.className = c; li.textContent = t; log.appendChild(li); };
+
+$('login').onclick = async () => {
+  try { await signInWithPopup(auth, new GoogleAuthProvider()); }
+  catch (e) { say('로그인 실패: ' + (e.code || e.message), 'bad'); }
+};
+$('logout').onclick = () => signOut(auth);
+
+onAuthStateChanged(auth, async (u) => {
+  $('login').hidden = !!u; $('logout').hidden = !u;
+  log.innerHTML = '';
+  if (!u) { say('로그인 버튼을 눌러 주세요.', 'wait'); return; }
+  say('로그인 성공: ' + u.email, 'ok');
+  try {
+    const ref = doc(db, 'test', 'ping');
+    await setDoc(ref, { at: serverTimestamp(), by: u.email });
+    say('저장 성공', 'ok');
+    const s = await getDoc(ref);
+    say('불러오기 성공: ' + (s.exists() ? s.data().by : '없음'), 'ok');
+    say('연결 완료! 2단계를 시작할 수 있어요.', 'ok');
+  } catch (e) {
+    say('저장 실패: ' + (e.code || e.message), 'bad');
+    if (e.code === 'permission-denied') say('→ Firestore 보안 규칙을 아직 안 바꿨거나, 허용된 메일이 아니에요.', 'bad');
+  }
+});
+</script>
+</body>
+</html>
