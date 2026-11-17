@@ -2,7 +2,7 @@
 //  1) 수정 알림: 누가 일지를 고치면(activity 기록이 생기면) 알림을 켠 다른 사람 휴대폰으로 바로 푸시
 //  2) 오늘 일정 알림: 각자 정한 시각에 그날 일지(일정)를 푸시
 //  3) PDF 백업 메일: 일지 주인이 정한 주기·시각에 누적 PDF를 메일로
-//  4) 공휴일 채우기: 매월 1일, 올해·내년 공휴일을 각 일지의 meta/holidays에 (없는 날짜만 더해요)
+//  4) 공휴일 채우기: 매일, 올해·내년 공휴일을 각 일지의 meta/holidays와 맞춰요(자동으로 넣은 날짜만 고치고 지워요)
 //  테스트·지금 보내기는 jobs 컬렉션에 문서를 하나 만들면 실행돼요(보안 규칙이 누가 만들 수 있는지 막아요).
 const { setGlobalOptions } = require('firebase-functions/v2');
 const { onDocumentCreated } = require('firebase-functions/v2/firestore');
@@ -11,6 +11,7 @@ const logger = require('firebase-functions/logger');
 const { initializeApp } = require('firebase-admin/app');
 const { getFirestore } = require('firebase-admin/firestore');
 const { getMessaging } = require('firebase-admin/messaging');
+const { syncHol } = require('./holidays-base');
 const { buildHtml, renderPdf, seoulNow, prevMonth, stripTags, pad } = require('./pdf');
 
 initializeApp();
@@ -145,16 +146,17 @@ async function fetchHolidays() {
 async function fillHolidays() {
   const got = await fetchHolidays();
   if (Object.keys(got).length < 10) throw new Error('공휴일이 너무 적게 받아졌어요(' + Object.keys(got).length + '개) — 그대로 두었어요');
-  const sps = await db.collection('spaces').get(); let added = 0;
+  const n = seoulNow(), years = [String(n.y), String(n.y + 1)];
+  const sps = await db.collection('spaces').get(); const tot = { add: 0, upd: 0, del: 0 };
   for (const s of sps.docs) {
-    const ref = db.doc(`spaces/${s.id}/meta/holidays`), cur = await ref.get();
-    const map = cur.exists && cur.data().map && typeof cur.data().map === 'object' ? cur.data().map : {};
-    const add = {}; for (const [k, v] of Object.entries(got)) if (!map[k]) add[k] = v;
-    if (!Object.keys(add).length) continue;
-    added += Object.keys(add).length;
-    await ref.set({ map: { ...map, ...add }, updatedAt: Date.now(), source: 'google-calendar' }, { merge: true });
+    const ref = db.doc(`spaces/${s.id}/meta/holidays`), cur = await ref.get(), x = cur.exists ? cur.data() : {};
+    const map0 = x.map && typeof x.map === 'object' ? x.map : {}, auto0 = x.auto && typeof x.auto === 'object' ? x.auto : {};
+    const r = syncHol(map0, auto0, got, years);
+    if (!r.ch.add && !r.ch.upd && !r.ch.del && JSON.stringify(r.auto) === JSON.stringify(auto0)) continue;
+    for (const k of Object.keys(tot)) tot[k] += r.ch[k];
+    await ref.set({ map: r.map, auto: r.auto, updatedAt: Date.now(), source: 'google-calendar' });
   }
-  return { found: Object.keys(got).length, added, spaces: sps.size };
+  return { found: Object.keys(got).length, ...tot, spaces: sps.size };
 }
 
 // ── 1분마다: 오늘 일정 알림과 PDF 메일 시각 확인 (무거운 PDF는 jobs로 넘겨 따로 실행)
@@ -179,7 +181,8 @@ exports.tick = onSchedule({ schedule: '* * * * *', timeZone: 'Asia/Seoul', memor
   }
 });
 
-exports.holidaysMonthly = onSchedule({ schedule: '10 4 1 * *', timeZone: 'Asia/Seoul', retryCount: 1 }, async () => {
+// 매일 새벽 4시 10분에 공휴일 달력과 맞춰요
+exports.holidaysDaily = onSchedule({ schedule: '10 4 * * *', timeZone: 'Asia/Seoul', retryCount: 1 }, async () => {
   const r = await fillHolidays(); logger.info('holidays', r);
 });
 
@@ -203,7 +206,7 @@ exports.runJob = onDocumentCreated({ document: 'jobs/{jid}', memory: '2GiB', tim
       if (!j.test) await db.doc(`spaces/${j.sid}`).set({ pdfLast: { at: Date.now(), ok: true, msg: r.skipped || `${r.span} · ${r.days}일` } }, { merge: true });
     } else if (j.kind === 'holidays') {
       const r = await fillHolidays();
-      await done({ result: r, msg: `공휴일 ${r.found}개를 찾아 새 날짜 ${r.added}개를 넣었어요.` });
+      await done({ result: r, msg: `공휴일 ${r.found}개를 확인했어요 · 새로 넣음 ${r.add} · 이름 고침 ${r.upd} · 빠져서 지움 ${r.del}` });
     } else await done({ status: 'error', msg: '알 수 없는 작업' });
   } catch (e) {
     logger.error('job', j.kind, e);

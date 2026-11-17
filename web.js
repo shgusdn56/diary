@@ -158,8 +158,8 @@ document.body.insertAdjacentHTML('beforeend', `
     <p>정한 시각에 그날 일지에 적힌 일정을 알려 줘요(근무·아래 칸은 빼요).</p>
     <div class="aur"><input type="time" id="wMornAt" value="07:20" aria-label="알림 시각"><button type="button" class="go" id="wMornSave">저장</button><button type="button" class="autest" id="wMornTest">테스트</button></div></div>
   <div class="aubox" id="wHolBox" hidden><div class="auh"><b>공휴일 채우기 ${crTag()}</b></div>
-    <p>매월 1일에 올해·내년 공휴일을 모든 일지에 자동으로 넣어요(이미 있는 날짜는 그대로). 지금 바로 한 번 채울 수도 있어요.</p>
-    <div class="aur"><button type="button" class="autest" id="wHolGo">지금 채우기</button></div></div>
+    <p>매일 새벽 공휴일 달력(Google '대한민국의 휴일')을 확인해서 올해·내년 공휴일을 모든 일지에 맞춰요. 새로 생긴 임시공휴일은 더하고, 바뀐 이름은 고치고, 빠진 날은 지워요(직접 넣은 날짜는 그대로). 지금 바로 한 번 맞출 수도 있어요.</p>
+    <div class="aur"><button type="button" class="autest" id="wHolGo">지금 맞추기</button></div></div>
   <div class="actions"><button class="ghost" id="wNotiNo">닫기</button></div><div class="msg" id="wNotiMsg"></div></div></div>
 <div class="modal" id="wPdfModal" role="dialog" aria-modal="true"><div class="sheet"><h2>PDF 백업 메일</h2>
   <p class="note">이 일지 전체(사진 포함)를 PDF로 만들어 메일로 보내요. 매월은 지난달까지, 매주·매일은 오늘까지 넣어요.</p>

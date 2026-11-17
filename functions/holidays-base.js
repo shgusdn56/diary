@@ -10,3 +10,21 @@ exports.HOL = {
     '2027-09-15': '추석', '2027-09-16': '추석 연휴', '2027-10-03': '개천절', '2027-10-04': '대체공휴일(개천절)', '2027-10-09': '한글날',
     '2027-10-11': '대체공휴일(한글날)', '2027-12-25': '성탄절', '2027-12-27': '대체공휴일(성탄절)'
   };
+
+// 자동으로 넣은 날짜는 auto에 따로 기억해 두고, 매일 달력과 맞춰요:
+//  - 새로 생긴 공휴일(임시공휴일·선거일 등)은 더하고, 이름이 바뀌면 고치고, 달력에서 빠지면 지워요
+//  - 사람이 직접 넣었거나 원래 있던 날짜(auto에 없는 것)는 건드리지 않아요
+function syncHol(map, auto, got, years) {
+  map = { ...map }; const nauto = {}; const ch = { add: 0, upd: 0, del: 0 };
+  for (const [k, v] of Object.entries(got)) {
+    if (!(k in map)) { map[k] = v; nauto[k] = v; ch.add++; }
+    else if (auto[k] !== undefined && auto[k] === map[k]) { if (map[k] !== v) { map[k] = v; ch.upd++; } nauto[k] = v; }
+  }
+  for (const [k, v] of Object.entries(auto)) {
+    if (k in got) continue;
+    if (!years.includes(k.slice(0, 4))) { if (map[k] === v) nauto[k] = v; continue; } // 지난 해 등 이번에 안 보는 해는 그대로
+    if (map[k] === v) { delete map[k]; ch.del++; }
+  }
+  return { map, auto: nauto, ch };
+}
+exports.syncHol = syncHol;
