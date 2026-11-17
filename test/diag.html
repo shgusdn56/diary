@@ -1,0 +1,72 @@
+<!doctype html>
+<html lang="ko"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>연결 진단</title>
+<style>
+:root { --bg: #f5f7fa; --fg: #1f2329; --mute: #6b7385; --ok: #188038; --bad: #d93025; --card: #fff; --line: #dfe4ec; }
+@media (prefers-color-scheme: dark) { :root { --bg: #16191f; --fg: #e8ecf2; --mute: #9aa3b5; --ok: #6fcf8f; --bad: #ff8a80; --card: #20242c; --line: #333a46; } }
+body { margin: 0; background: var(--bg); color: var(--fg); font: 14px/1.55 system-ui, -apple-system, "Noto Sans KR", sans-serif; padding: 16px; }
+h1 { font-size: 20px; margin: 0 0 4px; color: #1f5bc4; } p { color: var(--mute); margin: 0 0 12px; }
+#out { background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 10px 12px; white-space: pre-wrap; word-break: break-all; font-size: 13px; }
+.ok { color: var(--ok); } .bad { color: var(--bad); }
+button { font: inherit; margin: 12px 8px 0 0; padding: 8px 14px; border-radius: 18px; border: 1px solid #1f5bc4; background: #1f5bc4; color: #fff; }
+button.g { background: transparent; color: #1f5bc4; }
+</style></head><body>
+<h1>생활일지 연결 진단</h1>
+<p>한 단계씩 시험해요. 끝나면 화면을 캡처해 Claude에게 보내 주세요.</p>
+<div id="out"></div>
+<button id="again" type="button">다시 시험</button><button id="clear" class="g" type="button">저장된 사이트 파일 지우기</button>
+<script type="module">
+const out = document.getElementById('out');
+const line = (t, c) => { const d = document.createElement('div'); if (c) d.className = c; d.textContent = t; out.appendChild(d); return d; };
+const step = async (name, fn, ms = 15000) => {
+  const d = line('… ' + name), t0 = Date.now();
+  try {
+    const r = await Promise.race([fn(), new Promise((_, no) => setTimeout(() => no(new Error(`${ms / 1000}초 안에 대답 없음`)), ms))]);
+    d.textContent = `✓ ${name} (${Date.now() - t0}ms)${r ? ' · ' + r : ''}`; d.className = 'ok'; return true;
+  } catch (e) { d.textContent = `✕ ${name} (${Date.now() - t0}ms) · ${(e && (e.code || e.message)) || e}`; d.className = 'bad'; return false; }
+};
+const V = '10.12.2', B = `https://www.gstatic.com/firebasejs/${V}/`;
+async function run() {
+  out.textContent = '';
+  line(`${new Date().toLocaleString('ko-KR')} · 온라인 ${navigator.onLine}`);
+  line(navigator.userAgent);
+  await step('저장된 사이트 파일(서비스 워커)', async () => {
+    const rs = navigator.serviceWorker ? await navigator.serviceWorker.getRegistrations() : [];
+    const ks = self.caches ? await caches.keys() : [];
+    return `등록 ${rs.length}개 · 저장소 ${ks.join(', ') || '없음'}`;
+  }, 5000);
+  await step('일지가 여는 shim.js', async () => { const r = await fetch('shim.js?x=' + Date.now(), { cache: 'no-store' }); const t = await r.text(); return `${r.status} · 진단 기능 ${t.includes('runDiag') ? '있음(새 판)' : '없음(옛 판)'}`; });
+  await step('일지가 여는 index.html', async () => { const r = await fetch('./?x=' + Date.now(), { cache: 'no-store' }); const t = await r.text(); const m = t.match(/const BUILD = (\d+)/); return `${r.status} · 판 ${m ? m[1] : '?'}`; });
+  let A, Au, F;
+  if (!(await step('Firebase 프로그램 받기', async () => { [A, Au, F] = await Promise.all([import(B + 'firebase-app.js'), import(B + 'firebase-auth.js'), import(B + 'firebase-firestore.js')]); }))) return;
+  const app = A.initializeApp({ apiKey: "AIzaSyCCWE99k_oUukdtAuyWWqy2V3l1oMu2h7Y", authDomain: "life-diary-1c3b8.firebaseapp.com", projectId: "life-diary-1c3b8", storageBucket: "life-diary-1c3b8.firebasestorage.app", messagingSenderId: "500724626014", appId: "1:500724626014:web:d429923495cd82e663bacf" });
+  const auth = Au.getAuth(app);
+  let u = null;
+  if (!(await step('로그인 상태 확인', () => new Promise((ok) => { const un = Au.onAuthStateChanged(auth, (x) => { un(); u = x; ok(x ? '로그인됨' : '로그인 안 됨(일지에서 먼저 로그인해 주세요)'); }); }), 10000)) || !u) return;
+  let tok = '';
+  await step('로그인 열쇠 받기', async () => { tok = await u.getIdToken(true); return '받음'; });
+  const fs = F.initializeFirestore(app, {});
+  let sps = [];
+  if (!(await step('내 일지 찾기(서버)', async () => { const q = await F.getDocsFromServer(F.query(F.collection(fs, 'spaces'), F.where('members', 'array-contains', u.email))); sps = q.docs; return `${q.size}개`; }))) {
+    await step('같은 내용을 직접 읽기(REST)', async () => {
+      const r = await fetch('https://firestore.googleapis.com/v1/projects/life-diary-1c3b8/databases/(default)/documents:runQuery', { method: 'POST', headers: { Authorization: 'Bearer ' + tok, 'Content-Type': 'application/json' }, body: JSON.stringify({ structuredQuery: { from: [{ collectionId: 'spaces' }], where: { fieldFilter: { field: { fieldPath: 'members' }, op: 'ARRAY_CONTAINS', value: { stringValue: u.email } } } } }) });
+      return `${r.status} ${(await r.text()).replace(/\s+/g, ' ').slice(0, 200)}`;
+    });
+    return;
+  }
+  for (const s of sps.slice(0, 3)) {
+    const sid = s.id;
+    await step(`일지 ${sid.slice(0, 6)} · 잠금 정보`, async () => { const d = await F.getDocFromServer(F.doc(fs, `spaces/${sid}/meta/auth`)); return d.exists() ? '있음' : '없음'; });
+    await step(`일지 ${sid.slice(0, 6)} · 날짜 기록`, async () => { const q = await F.getDocsFromServer(F.query(F.collection(fs, `spaces/${sid}/days`), F.limit(3))); return `${q.size}개 받음`; });
+    await step(`일지 ${sid.slice(0, 6)} · 실시간 연결`, () => new Promise((ok, no) => { const un = F.onSnapshot(F.doc(fs, `spaces/${sid}/meta/auth`), { includeMetadataChanges: true }, (x) => { if (!x.metadata.fromCache) { un(); ok('연결됨'); } }, (e) => no(e)); }));
+  }
+  line('끝', 'ok');
+}
+document.getElementById('again').onclick = run;
+document.getElementById('clear').onclick = async () => {
+  try { for (const r of await navigator.serviceWorker.getRegistrations()) await r.unregister(); for (const k of await caches.keys()) await caches.delete(k); line('저장된 사이트 파일을 지웠어요. 일지를 다시 열면 새로 받아요. (일지 내용은 그대로예요)', 'ok'); }
+  catch (e) { line('지우지 못했어요: ' + e.message, 'bad'); }
+};
+run();
+</script>
+</body></html>
