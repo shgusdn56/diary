@@ -136,8 +136,18 @@ $('wImpFile').addEventListener('change', async (e) => {
   const jobs = M.docs.map(([p, d]) => [target(p), swap(d)]).filter(([p]) => p && p.split('/').length % 2 === 0);
   let done = 0, fail = 0;
   $('wImpPick').disabled = true;
+  // 이미 웹앱에 같은 문서가 있으면 더 새것만 남겨요(웹앱에서 고친 날짜를 옛 내용으로 덮지 않게)
+  let kept = 0, same = 0;
   for (const [p, d] of jobs) {
-    try { await setDoc(doc(fs, p), d); } catch (er) { fail++; console.warn('[import]', p, er && er.code); }
+    try {
+      const cur = await getDoc(doc(fs, p));
+      if (cur.exists()) {
+        const a = cur.data() || {}, ta = +a.updatedAt || 0, tb = +(d && d.updatedAt) || 0;
+        if (JSON.stringify(a) === JSON.stringify(d)) { same++; done++; continue; }
+        if (!(tb > ta)) { if (tb === ta) same++; else kept++; done++; continue; }
+      }
+      await setDoc(doc(fs, p), d);
+    } catch (er) { fail++; console.warn('[import]', p, er && er.code); }
     done++; if (done % 5 === 0 || done === jobs.length) say('wImpMsg', `옮기는 중… ${done} / ${jobs.length}`);
   }
   if (M.space && typeof M.space.memoLabel === 'string') { try { await updateDoc(doc(fs, 'spaces', SID), 'memoLabel', M.space.memoLabel.slice(0, 12)); } catch (er) {} }
@@ -146,7 +156,7 @@ $('wImpFile').addEventListener('change', async (e) => {
     try { const cur = await getDoc(doc(fs, `spaces/${SID}/profiles/${key}`)); if (!(cur.exists() && cur.data().set)) await setDoc(doc(fs, `spaces/${SID}/profiles/${key}`), { name: pr.name || '', set: true, ...(key === NEW ? { email: U.email } : {}) }, { merge: true }); } catch (er) {}
   }
   $('wImpPick').disabled = false;
-  say('wImpMsg', fail ? `${jobs.length - fail}개를 옮겼고 ${fail}개는 옮기지 못했어요. 같은 파일을 한 번 더 가져와 주세요.` : `${jobs.length}개를 모두 옮겼어요. 새로고침하면 옮긴 내용으로 열려요.`, !!fail);
+  say('wImpMsg', (fail ? `${jobs.length - fail - kept - same}개를 옮겼고 ${fail}개는 옮기지 못했어요. 같은 파일을 한 번 더 가져와 주세요.` : `${jobs.length - kept - same}개를 옮겼어요.`) + (kept ? ` 웹앱 쪽이 더 새로운 ${kept}개는 그대로 뒀어요.` : '') + (same ? ` 이미 같은 ${same}개는 건너뛰었어요.` : '') + (fail ? '' : ' 새로고침하면 옮긴 내용으로 열려요.'), !!fail);
 });
 
 // ── 휴대폰 알림(4단계): 이 기기에서 알림 받기, 수정 알림, 오늘 일정 알림 — 서버(Cloud Functions)가 보내요
