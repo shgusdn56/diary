@@ -110,6 +110,8 @@ if (menu && anchor) {
     <button class="mrowbtn" id="wOutBtn" type="button"><span>로그아웃</span><span class="mval">${esc(U.email)}</span><span class="chev">›</span></button></div>`);
   const showName = () => { const p = W.profCache[U.uid]; $('wNameVal').textContent = (p && p.name) || U.displayName || ''; };
   showName();
+  // 내 이름은 일지에 정해 둔 이름(프로필)을 먼저 써요 — 아직 안 불러왔으면 Google 계정 이름이 잠깐 보이던 문제
+  getDoc(doc(fs, `spaces/${SID}/profiles/${U.uid}`)).then((x) => { if (x.exists() && x.data().name) { W.profCache[U.uid] = { ...(W.profCache[U.uid] || {}), ...x.data() }; showName(); } }).catch(() => {});
   $('wNameBtn').addEventListener('click', () => { closeMenu(); const p = W.profCache[U.uid]; $('wName').value = (p && p.name) || U.displayName || ''; say('wNameMsg', ''); open('wNameModal'); setTimeout(showName, 1500); });
   $('wOutBtn').addEventListener('click', () => { closeMenu(); window.__logout(); });
 }
