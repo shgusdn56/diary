@@ -375,11 +375,17 @@ st3.textContent = `#mUpd.crrow::after, #mUpd.ownrow::after { display: none !impo
 .wrelh { font-size: 13px; color: var(--mute, #6b7385); display: flex; align-items: center; gap: 6px; flex-wrap: wrap; } .wrelh b { color: var(--ink, #1f2329); font-size: 14px; }
 .wrel ul { margin: 6px 0 0; padding-left: 18px; } .wrel li { font-size: 13.5px; line-height: 1.55; margin: 2px 0; }
 .wnew { font-style: normal; font-size: 11px; font-weight: 700; color: #fff; background: var(--blue, #1f5bc4); border-radius: 8px; padding: 0 6px; }
-.wrel.on { background: var(--blue-l, #e8f0fe); border-radius: 10px; padding: 10px; border-bottom: 0; margin-bottom: 6px; }`;
+.wrel.on { background: var(--blue-l, #e8f0fe); border-radius: 10px; padding: 10px; border-bottom: 0; margin-bottom: 6px; }
+.wrel > summary { list-style: none; cursor: pointer; -webkit-tap-highlight-color: transparent; } .wrel > summary::-webkit-details-marker { display: none; }
+.wcnt { margin-left: auto; font-size: 12px; } .wchev { width: 8px; height: 8px; border-right: 2px solid currentColor; border-bottom: 2px solid currentColor; transform: rotate(45deg); margin: 0 4px 3px 6px; transition: transform .15s; }
+.wrel[open] .wchev { transform: rotate(-135deg); margin-bottom: -3px; }
+.wtools { display: flex; justify-content: flex-end; gap: 6px; margin-top: -4px; } .wtools button { font: inherit; font-size: 12.5px; border: 0; background: none; color: var(--blue, #1f5bc4); padding: 4px 6px; cursor: pointer; }
+body:has(.modal.on) #testBadge { display: none !important; }`;
 document.head.appendChild(st3);
 document.body.insertAdjacentHTML('beforeend', `
 <div class="modal" id="wUpdModal" role="dialog" aria-modal="true"><div class="sheet"><button class="wclose" type="button" aria-label="닫기">✕</button><h2 id="wUpdTitle">업데이트 내역</h2>
   <p class="note" id="wUpdNote"></p>
+  <div class="wtools"><button type="button" id="wUpdAll">모두 펼치기</button><button type="button" id="wUpdNone">모두 접기</button></div>
   <div id="wUpdList"></div>
   <div class="aubox" id="wGhBox" hidden><div class="auh"><b>올리기 연결 ${crTag()}</b></div>
     <p>시험판의 '원래 주소에 올리기' 단추가 쓰는 GitHub 열쇠예요. GitHub → Settings → Developer settings → Fine-grained tokens에서 diary 저장소 하나만, Contents 'Read and write' 권한으로 만든 열쇠를 넣어 주세요. 저장한 열쇠는 서버만 읽을 수 있어요.</p>
@@ -388,13 +394,16 @@ document.body.insertAdjacentHTML('beforeend', `
     <div class="aur"><button type="button" class="go" id="wGhSave">저장</button></div></div>
   <div class="actions"><button class="ghost" id="wUpdNo">닫기</button></div><div class="msg" id="wUpdMsg"></div></div></div>`);
 $('wUpdNo').addEventListener('click', () => close('wUpdModal'));
+$('wUpdAll').addEventListener('click', () => $('wUpdList').querySelectorAll('details').forEach((d) => { d.open = true; }));
+$('wUpdNone').addEventListener('click', () => $('wUpdList').querySelectorAll('details').forEach((d) => { d.open = false; }));
 const relDate = (r) => { const [y, m, d] = String(r.d || '').split('-').map(Number); return m ? `${y}년 ${m}월 ${d}일${r.t ? ' ' + r.t : ''}` : ''; };
 function drawUpd(sinceB) {
   const list = REL.slice().reverse();
   $('wUpdNote').textContent = `지금 버전 v${BUILD_NOW}` + (sinceB ? ' · 지난번에 보신 뒤로 바뀐 점이에요(파란 칸).' : ' · 최근 것부터 보여 줘요.');
-  $('wUpdList').innerHTML = list.map((r) => {
+  $('wUpdList').innerHTML = list.map((r, i) => {
     const isNew = sinceB && (+r.b || 0) > sinceB;
-    return `<div class="wrel${isNew ? ' on' : ''}"><div class="wrelh"><b>v${esc(r.b || '')}</b><span>${esc(relDate(r))}</span>${isNew ? '<em class="wnew">새로</em>' : ''}</div><ul>${(r.notes || []).map((n) => `<li>${esc(String(n).replace(/\*\*/g, ''))}</li>`).join('')}</ul></div>`;
+    const openIt = sinceB ? isNew : i === 0; // 새로 바뀐 것(없으면 맨 위 하나)만 펼쳐 두고 나머지는 접어요
+    return `<details class="wrel${isNew ? ' on' : ''}"${openIt ? ' open' : ''}><summary class="wrelh"><b>${r.b ? 'v' + esc(r.b) : '초기 판'}</b><span>${esc(relDate(r))}</span>${isNew ? '<em class="wnew">새로</em>' : ''}<span class="wcnt">${(r.notes || []).length}가지</span><i class="wchev" aria-hidden="true"></i></summary><ul>${(r.notes || []).map((n) => `<li>${esc(String(n).replace(/\*\*/g, ''))}</li>`).join('')}</ul></details>`;
   }).join('') || '<p class="note">아직 기록이 없어요.</p>';
 }
 async function drawGh() {
