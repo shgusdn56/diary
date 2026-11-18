@@ -183,6 +183,21 @@ exports.tick = onSchedule({ schedule: '* * * * *', timeZone: 'Asia/Seoul', memor
 });
 
 // 매일 새벽 4시 10분에 공휴일 달력과 맞춰요
+// ── 문제 보고: 화면이 막히거나 오류가 나면 reports에 남고, 제작자(보내는 Gmail 계정)에게 메일로 알려요(같은 사람은 1시간에 한 번)
+exports.reportMail = onDocumentCreated('reports/{rid}', async (ev) => {
+  const r = ev.data && ev.data.data(); if (!r || !r.by) return;
+  const rate = db.doc(`reportRate/${r.by}`), last = await rate.get();
+  if (last.exists && Date.now() - (last.data().at || 0) < 3600e3) return;
+  await rate.set({ at: Date.now() });
+  try {
+    const { from, t } = await mailer();
+    const jn = r.sid ? await journalName(r.sid) : '생활일지';
+    const when = new Date(r.at || Date.now()).toLocaleString('ko-KR', { timeZone: 'Asia/Seoul' });
+    await t.sendMail({ from: `"생활일지 오류 보고" <${from}>`, to: from, subject: `[생활일지 오류 보고] ${r.email || r.by} · ${r.kind === 'error' ? '화면 오류' : '불러오기 막힘'} · ${when}`,
+      text: `일지: ${jn} (${r.sid || '-'})\n사람: ${r.email || '-'} (${r.by})\n시각: ${when}\n주소: ${r.url || '-'}\n브라우저: ${r.ua || '-'}\n\n${(r.lines || []).join('\n')}\n\n— 이 메일을 Claude에게 \"오류 보고 왔어\"라고 알려 주면 확인해요. (보고 번호 ${ev.params.rid})` });
+  } catch (e) { logger.error('reportMail', e); }
+});
+
 exports.holidaysDaily = onSchedule({ schedule: '10 4 * * *', timeZone: 'Asia/Seoul', retryCount: 1 }, async () => {
   const r = await fillHolidays(); logger.info('holidays', r);
 });

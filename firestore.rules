@@ -42,6 +42,13 @@ service cloud.firestore {
           || (request.resource.data.kind == 'invite' && space(request.resource.data.sid).owner == request.auth.uid && request.resource.data.to in space(request.resource.data.sid).members)
           || (request.resource.data.kind in ['holidays', 'release'] && isCreator()));
     }
+    // 문제 보고: 로그인한 사람은 자기 이름으로 남길 수만 있고, 읽기는 제작자만(서버가 제작자 메일로 보내요)
+    match /reports/{r} {
+      allow create: if signed() && request.resource.data.by == request.auth.uid
+        && request.resource.data.keys().hasOnly(['kind', 'by', 'email', 'sid', 'at', 'url', 'ua', 'lines'])
+        && request.resource.data.lines is list && request.resource.data.lines.size() <= 40;
+      allow read: if isCreator();
+    }
     // 메일 보내는 계정(앱 비밀번호): 제작자만 쓰고, 아무도 읽지 못해요(서버만 읽어요)
     match /secret/{d} {
       allow read: if false;
