@@ -250,10 +250,10 @@ exports.runJob = onDocumentCreated({ document: 'jobs/{jid}', memory: '2GiB', tim
       const q = await db.collection(`spaces/${j.sid}/activity`).orderBy('at', 'desc').limit(1).get();
       const last = q.empty ? '아직 수정 기록 없음' : actLine(q.docs[0].data());
       const r = await pushTo(j.by, { title: `[${await journalName(j.sid)} 테스트] 수정 알림 연결 정상`, body: '마지막 수정: ' + last, url: lnk(j.sid), tag: 'test' });
-      await done({ result: r, msg: r.devices ? `알림을 보냈어요(기기 ${r.sent}/${r.devices}대).` : '알림 받을 기기가 없어요. 먼저 \'이 기기에서 알림 받기\'를 눌러 주세요.' });
+      await done({ result: r, msg: r.devices ? `알림을 보냈어요(기기 ${r.sent}/${r.devices}대).` + (r.errs && r.errs.length ? ' 실패 이유: ' + r.errs.join(' / ') : '') : '알림 받을 기기가 없어요. 먼저 \'이 기기에서 알림 받기\'를 눌러 주세요.' });
     } else if (j.kind === 'test-morning') {
       const r = await sendMorning(j.sid, j.by, true);
-      await done({ result: r, msg: r.devices ? `알림을 보냈어요(기기 ${r.sent}/${r.devices}대).` : '알림 받을 기기가 없어요. 먼저 \'이 기기에서 알림 받기\'를 눌러 주세요.' });
+      await done({ result: r, msg: r.devices ? `알림을 보냈어요(기기 ${r.sent}/${r.devices}대).` + (r.errs && r.errs.length ? ' 실패 이유: ' + r.errs.join(' / ') : '') : '알림 받을 기기가 없어요. 먼저 \'이 기기에서 알림 받기\'를 눌러 주세요.' });
     } else if (j.kind === 'pdf') {
       const r = await sendPdf(j.sid, { test: !!j.test });
       await done({ result: r, msg: r.skipped || `${r.sent}명에게 보냈어요 · ${r.span} · 기록한 날 ${r.days}일 · ${r.kb}KB` });
