@@ -205,6 +205,19 @@ exports.runJob = onDocumentCreated({ document: 'jobs/{jid}', memory: '2GiB', tim
       const r = await sendPdf(j.sid, { test: !!j.test });
       await done({ result: r, msg: r.skipped || `${r.sent}명에게 보냈어요 · ${r.span} · 기록한 날 ${r.days}일 · ${r.kb}KB` });
       if (!j.test) await db.doc(`spaces/${j.sid}`).set({ pdfLast: { at: Date.now(), ok: true, msg: r.skipped || `${r.span} · ${r.days}일` } }, { merge: true });
+    } else if (j.kind === 'invite') {
+      // 초대 메일: 일지 주인이 공유에 넣은 메일로 들어오는 주소와 방법을 보내요(PDF 메일과 같은 Gmail 계정)
+      const sp = await db.doc(`spaces/${j.sid}`).get(); const S = sp.exists ? sp.data() : null;
+      if (!S || S.owner !== j.by) throw new Error('일지 주인만 초대 메일을 보낼 수 있어요');
+      const to = String(j.to || '').toLowerCase();
+      if (!(S.members || []).includes(to)) throw new Error('공유 명단에 없는 메일이에요');
+      const pr = await db.doc(`spaces/${j.sid}/profiles/${j.by}`).get(); const who = (pr.exists && pr.data().name) || '일지 주인';
+      const jn = await journalName(j.sid), role = (S.roles || {})[to] === 'view' ? '보기만' : '함께 쓰기';
+      const google = /@(gmail\.com|googlemail\.com)$/.test(to) ? '' : `\n※ 로그인은 Google 계정으로 해요. ${to} 주소로 만든 Google 계정이 없으면 들어올 수 없어요. 그럴 땐 쓰시는 Gmail 주소를 ${who}님께 알려 주세요.\n`;
+      const { from, t } = await mailer();
+      await t.sendMail({ from: `"${jn.replace(/"/g, '')}" <${from}>`, to, subject: `[${jn}] ${who}님이 일지에 초대했어요`,
+        text: `${who}님이 '${jn}'을 같이 쓰자고 초대했어요(${role}).\n\n1. 아래 주소를 열어요\n${lnk(j.sid)}\n\n2. 'Google 계정으로 로그인'을 눌러 이 메일(${to})의 Google 계정으로 로그인하면 바로 열려요.\n${google}\n휴대폰 알림을 받으려면 일지 메뉴 → 휴대폰 알림 → '이 기기에서 알림 받기'를 켜 주세요.\n(아이폰은 Safari에서 공유 → '홈 화면에 추가'를 한 뒤 그 아이콘으로 열어야 알림이 와요)` });
+      await done({ msg: `${to}로 초대 메일을 보냈어요.` });
     } else if (j.kind === 'release') {
       // 시험판(test/)을 원래 주소에 올리기: GitHub의 '시험판 올리기' 작업을 시작시켜요(열쇠는 secret/github, 제작자만 저장)
       const g = await db.doc('secret/github').get(), tok = g.exists && g.data().token;

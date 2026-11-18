@@ -47,13 +47,13 @@ const closeMenu = () => { const m = $('menu'); if (m) m.classList.remove('on'); 
 // ── 공유: 초대한 메일만 일지를 볼 수 있어요(보안 규칙이 서버에서 막아요)
 function drawMembers() {
   const roles = space.roles || {}, own = isOwner();
-  $('wShareNote').textContent = own ? '초대한 Google 메일만 이 일지를 열 수 있어요. 초대받은 분은 같은 주소로 들어와 Google로 로그인하면 돼요.' : '이 일지를 함께 보는 사람이에요. 초대와 권한은 일지 주인만 바꿀 수 있어요.';
+  $('wShareNote').textContent = own ? '초대한 Google 메일만 이 일지를 열 수 있어요. 초대하면 그 메일로 들어오는 주소와 방법이 담긴 초대 메일이 가요(Google 계정으로 로그인해요).' : '이 일지를 함께 보는 사람이에요. 초대와 권한은 일지 주인만 바꿀 수 있어요.';
   $('wAdd').hidden = !own; $('wShareGo').hidden = !own;
   const list = (space.members || []).slice().sort((a, b) => (roles[a] === 'owner' ? -1 : roles[b] === 'owner' ? 1 : a.localeCompare(b)));
   $('wMembers').innerHTML = list.map((m) => {
     const r = roles[m] || 'view', me = m === U.email;
     const ctl = r === 'owner' || !own ? `<span class="wtag">${ROLE[r] || r}</span>` :
-      `<select data-m="${esc(m)}"><option value="edit"${r === 'edit' ? ' selected' : ''}>함께 쓰기</option><option value="view"${r === 'view' ? ' selected' : ''}>보기만</option></select><button class="wx" data-x="${esc(m)}" type="button">빼기</button>`;
+      `<select data-m="${esc(m)}"><option value="edit"${r === 'edit' ? ' selected' : ''}>함께 쓰기</option><option value="view"${r === 'view' ? ' selected' : ''}>보기만</option></select><button class="wx" data-mail="${esc(m)}" type="button" title="초대 메일 다시 보내기">메일</button><button class="wx" data-x="${esc(m)}" type="button">빼기</button>`;
     return `<div class="wrow"><span class="wm">${esc(m)}${me ? ' (나)' : ''}</span>${ctl}</div>`;
   }).join('');
 }
@@ -77,6 +77,7 @@ $('wMembers').addEventListener('change', async (e) => {
   try { await updateDoc(ref(), new FieldPath('roles', m), e.target.value); say('wShareMsg', '바꿨어요. 다음에 열 때부터 적용돼요.'); } catch (er) { say('wShareMsg', '바꾸지 못했어요: ' + (er.code || er.message), true); }
 });
 $('wMembers').addEventListener('click', async (e) => {
+  const mm = e.target.dataset && e.target.dataset.mail; if (mm) { job('invite', { sid: SID, to: mm }, 'wShareMsg'); return; }
   const m = e.target.dataset && e.target.dataset.x; if (!m) return;
   try { await updateDoc(ref(), 'members', arrayRemove(m), new FieldPath('roles', m), deleteField()); say('wShareMsg', `${m} 님을 뺐어요.`); } catch (er) { say('wShareMsg', '빼지 못했어요: ' + (er.code || er.message), true); }
 });
@@ -84,7 +85,7 @@ $('wShareGo').addEventListener('click', async () => {
   const m = $('wEmail').value.trim().toLowerCase();
   if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(m)) { say('wShareMsg', 'Google 메일 주소를 정확히 적어 주세요.', true); return; }
   if ((space.members || []).includes(m)) { say('wShareMsg', '이미 초대한 메일이에요.', true); return; }
-  try { await updateDoc(ref(), 'members', arrayUnion(m), new FieldPath('roles', m), $('wRole').value); $('wEmail').value = ''; say('wShareMsg', `${m} 님을 초대했어요. 사이트 주소를 보내 주세요: ${location.origin}${location.pathname}`); }
+  try { await updateDoc(ref(), 'members', arrayUnion(m), new FieldPath('roles', m), $('wRole').value); $('wEmail').value = ''; say('wShareMsg', `${m} 님을 초대했어요. 초대 메일을 보내는 중…`); setTimeout(() => job('invite', { sid: SID, to: m }, 'wShareMsg'), 600); } // 명단이 서버에 들어간 뒤 메일
   catch (er) { say('wShareMsg', '초대하지 못했어요: ' + (er.code || er.message), true); }
 });
 $('wShareNo').addEventListener('click', () => close('wShareModal'));
