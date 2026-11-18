@@ -308,7 +308,7 @@ exports.runJob = onDocumentCreated({ document: 'jobs/{jid}', memory: '2GiB', tim
 
 // ── 관리자 열람 알림: 누군가(제작자 포함) Firebase 관리 화면·관리자 도구로 일지 자료를 읽으면
 //  Google 감사 로그(Data Access) → 로그 싱크 → Pub/Sub 'admin-reads' → 여기로 와요.
-//  읽은 일지의 구성원에게 휴대폰 알림, 주인에게 메일을 보내고, 일지 메뉴 '관리자 열람 기록'에 남겨요.
+//  읽은 일지의 구성원에게 휴대폰 알림, 주인에게 메일을 보내요(기록은 서버 adminReads에만 남겨요).
 //  (일지 앱으로 평소 읽고 쓰는 건 Firebase 로그인 요청이라 이 로그에 걸리지 않게 싱크에서 걸러요. 서버 기능(서비스 계정)도 빼요)
 const { onMessagePublished } = require('firebase-functions/v2/pubsub');
 const REL_KO = { spaces: '일지', private: '나만 보는 일지·개인 설정' };
@@ -336,7 +336,7 @@ async function adminReadAlert(entry) {
     if (Date.now() - last < 10 * 60e3) { done.push(k + ':logged'); continue; }
     await gate.set({ notifiedAt: Date.now() }, { merge: true });
     const title = '[생활일지] 관리자가 일지 자료를 열었어요';
-    const body = `${who} 계정이 서버 관리 화면에서 ${REL_KO[kind]}(${what})를 열었어요. 메뉴 → 관리자 열람 기록에서 볼 수 있어요.`;
+    const body = `${who} 계정이 서버 관리 화면에서 ${REL_KO[kind]}(${what})를 열었어요.`;
     let uids = [], ownerMail = '';
     if (kind === 'spaces') {
       const sp = await db.doc(`spaces/${id}`).get(); if (!sp.exists) { done.push(k + ':gone'); continue; }
@@ -347,7 +347,7 @@ async function adminReadAlert(entry) {
       uids = [id];
       const u = await db.doc(`usage/${id}`).get(); ownerMail = u.exists ? u.data().email || '' : '';
     }
-    for (const u of uids) { try { await pushTo(u, { title, body, url: kind === 'spaces' ? lnk(id) + '&adminreads=1' : SITE + '?adminreads=1', tag: 'adminread-' + id }); } catch (e) { logger.warn('adminread push', u, e.message); } }
+    for (const u of uids) { try { await pushTo(u, { title, body, url: kind === 'spaces' ? lnk(id) : SITE, tag: 'adminread-' + id }); } catch (e) { logger.warn('adminread push', u, e.message); } }
     if (ownerMail) { try { const { from, t } = await mailer(); await t.sendMail({ from: `"생활일지 알림" <${from}>`, to: ownerMail, subject: title, text: body + `\n\n시각: ${new Date(at).toLocaleString('ko-KR', { timeZone: 'Asia/Seoul' })}\n방식: ${method}\n\n일지를 쓰는 사람의 내용 보호를 위해 자동으로 보내는 메일이에요.` }); } catch (e) { logger.warn('adminread mail', e.message); } }
     done.push(k + ':notified');
   }

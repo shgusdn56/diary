@@ -606,31 +606,6 @@ if (CREATOR) {
   });
 }
 
-// ── 관리자 열람 기록: 누군가 서버 관리 화면(Firebase 콘솔 등)에서 이 일지 자료를 열면 서버가 Google 감사 로그를 보고 자동으로 남겨요(알림·메일도 와요)
-{
-  document.body.insertAdjacentHTML('beforeend', `
-<div class="modal" id="wArModal" role="dialog" aria-modal="true"><div class="sheet"><button class="wclose" type="button" aria-label="닫기">✕</button><h2>관리자 열람 기록</h2>
-  <p class="note">제작자를 포함해 누군가 <b>서버 관리 화면</b>에서 이 일지(또는 내 '나만' 일지) 자료를 열면, Google이 남기는 기록을 보고 여기에 자동으로 적어요. 그때마다 휴대폰 알림과 메일(일지 주인)도 가요. 이 기록은 아무도 고치거나 지울 수 없어요.</p>
-  <div id="wArList" style="max-height:50vh;overflow:auto"></div>
-  <div class="actions"><button class="ghost" id="wArNo">닫기</button></div><div class="msg" id="wArMsg"></div></div></div>`);
-  { const st = document.createElement('style'); st.textContent = `#wArList .wvl { display: flex; flex-wrap: wrap; gap: 8px; align-items: baseline; padding: 7px 0; border-bottom: 1px solid var(--line, #e3e7ee); font-size: 13px; } #wArList .wvl b { font-weight: 600; } #wArList .wvl span { color: var(--mute, #6b7385); font-size: 12px; }`; document.head.appendChild(st); }
-  $('wArNo').addEventListener('click', () => close('wArModal'));
-  const acct = $('wAcct');
-  if (acct) acct.insertAdjacentHTML('afterbegin', `<button class="mrowbtn" id="wArBtn" type="button"><span>관리자 열람 기록</span><span class="chev">›</span></button>`);
-  const fmt = (t) => new Date(t).toLocaleString('ko-KR', { year: 'numeric', month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' });
-  async function openAr() {
-    closeMenu(); say('wArMsg', '불러오는 중…'); $('wArList').innerHTML = ''; open('wArModal');
-    try {
-      const [a, b] = await Promise.all([getDocs(query(collection(fs, `adminReads/${SID}/r`), orderBy('at', 'desc'), limit(50))), getDocs(query(collection(fs, `adminReadsP/${U.uid}/r`), orderBy('at', 'desc'), limit(50)))]);
-      const L = [...a.docs.map((d) => ({ ...d.data(), k: '이 일지' })), ...b.docs.map((d) => ({ ...d.data(), k: '나만 보는 일지·개인 설정' }))].sort((x, y) => (y.at || 0) - (x.at || 0));
-      $('wArList').innerHTML = L.length ? L.map((x) => `<div class="wvl"><b>${esc(fmt(x.at))}</b><span>${esc(x.who || '')} · ${esc(x.k)}${x.what ? ' (' + esc(x.what) + ')' : ''}</span></div>`).join('') : '<p class="note"><b>아직 한 번도 없어요.</b> 누구도 서버 관리 화면에서 이 일지를 열지 않았다는 뜻이에요.</p>';
-      say('wArMsg', '');
-    } catch (er) { say('wArMsg', '불러오지 못했어요: ' + (er.code || er.message), true); }
-  }
-  if ($('wArBtn')) $('wArBtn').addEventListener('click', openAr);
-  if (/[?&]adminreads=1/.test(location.search)) setTimeout(openAr, 1500); // 알림을 눌러 들어오면 바로 열어요
-}
-
 // ── 들어온 기록: 일지를 열 때마다(같은 기기는 10분에 한 번) 누가·언제·어떤 기기로 들어왔는지 남겨요. 주인만 봐요(90일 보관)
 // 그리고 사람마다 '마지막 사용일·버전' 한 줄(usage)을 남겨요 — 제작자만 봐요(일지 내용·접속 기록은 아님)
 const devOf = (ua) => {
