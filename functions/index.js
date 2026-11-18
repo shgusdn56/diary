@@ -67,19 +67,17 @@ function dayDiff(o, n) {
   return out;
 }
 // 임시 진단(2시간): 수정 알림이 어디서 멈추는지 제작자 메일로 짧게 보내요
-const DBG_UNTIL = 1795014475004;
-async function dbg(subject, lines) { if (Date.now() > DBG_UNTIL) return; try { const { from, t } = await mailer(); await t.sendMail({ from: `"생활일지 진단" <${from}>`, to: from, subject: '[생활일지 진단] ' + subject, text: lines.join('\n') }); } catch (e) { logger.error('dbg', e); } }
 exports.dayAlert = onDocumentWritten('spaces/{sid}/days/{date}', async (ev) => {
   const { sid, date } = ev.params;
   const before = ev.data.before.exists ? ev.data.before.data() : {}, after = ev.data.after.exists ? ev.data.after.data() : null;
   const D = [`날짜 ${date} · 고친 사람 ${after && after.updatedBy} · fin ${before.fin || 0} → ${after && after.fin || 0} · updatedAt ${after && after.updatedAt}`];
-  if (!after || !after.updatedBy || !((after.fin || 0) > (before.fin || 0))) { if (after && after.updatedBy && (after.updatedAt || 0) > (before.updatedAt || 0)) await dbg('저장(아직 칸 안 나감) ' + date, D); return; } // 칸을 빠져나간 순간만
+  if (!after || !after.updatedBy || !((after.fin || 0) > (before.fin || 0))) return; // 칸을 빠져나간 순간만
   const nref = db.doc(`spaces/${sid}/dayNoti/${date}`), last = await nref.get();
   const base = last.exists ? last.data() : (Array.isArray(after.hist) && after.hist.length ? after.hist[after.hist.length - 1] : before);
   const diff = dayDiff(base || {}, after);
   await nref.set({ log: after.log || '', work: after.work || '', molly: after.molly || '', at: Date.now() });
   D.push('비교 기준: ' + (last.exists ? '지난 알림' : '수정 기록'), '바뀐 점: ' + (diff.join(' | ') || '없음'));
-  if (!diff.length) { await dbg('바뀐 점 없음 ' + date, D); return; }
+  if (!diff.length) return;
   const sp = await db.doc(`spaces/${sid}`).get(); if (!sp.exists) return;
   let who = '공유자'; try { const p = await db.doc(`spaces/${sid}/profiles/${after.updatedBy}`).get(); if (p.exists && p.data().name) who = p.data().name; } catch (e) {}
   const jn = await journalName(sid), ns = await db.collection(`spaces/${sid}/notify`).where('on', '==', true).get();
@@ -89,8 +87,7 @@ exports.dayAlert = onDocumentWritten('spaces/{sid}/days/{date}', async (ev) => {
     if (!(await isMember(sid, n.id, sp.data()))) { D.push(`${n.id}: 구성원 확인 실패(프로필 메일 없음?)`); continue; }
     try { const r = await pushTo(n.id, { title: `[${jn}] 수정 알림`, body: body.slice(0, 600), url: lnk(sid), tag: `day-${sid}-${date}` }); D.push(`${n.id}: 보냄 ${r.sent}/${r.devices}` + (r.errs && r.errs.length ? ' · 오류: ' + r.errs.join(' / ') : '')); } catch (e) { D.push(`${n.id}: 실패 ${e.message}`); logger.error('dayAlert', e); }
   }
-  D.push('알림 켠 사람 수: ' + ns.size);
-  await dbg('수정 알림 ' + date, D);
+  D.push('알림 켠 사람 수: ' + ns.size); console.log('[dayAlert] ' + D.join(' / ')); // 메일 대신 서버 기록에만
 });
 
 // ── 2) 오늘 일정
