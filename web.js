@@ -556,3 +556,24 @@ const devOf = (ua) => {
   }
   if ($('wVlBtn')) $('wVlBtn').addEventListener('click', openVl);
 }
+
+// ── 새 판 자동 적용: 열어 둔 일지도 5분마다·돌아올 때마다 새 판을 확인해서, 쓰는 중이 아니면 저절로 새로고침해요
+(() => {
+  if (!BUILD_NOW) return;
+  const busy = () => { const a = document.activeElement; return !!(a && (a.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(a.tagName))) || !!document.querySelector('.modal.on'); };
+  let newer = 0, checking = false;
+  const toast = (t) => { const d = document.createElement('div'); d.textContent = t; d.style.cssText = 'position:fixed;left:50%;transform:translateX(-50%);bottom:calc(16px + env(safe-area-inset-bottom));z-index:2147483004;background:#1f5bc4;color:#fff;font:600 14px system-ui,sans-serif;padding:10px 18px;border-radius:20px;box-shadow:0 4px 14px rgba(0,0,0,.2)'; document.body.appendChild(d); };
+  const offer = () => { if (document.getElementById('wNew')) return; const b = document.createElement('button'); b.id = 'wNew'; b.type = 'button'; b.textContent = '새 버전이 있어요 · 눌러서 새로고침'; b.style.cssText = 'position:fixed;left:50%;transform:translateX(-50%);bottom:calc(16px + env(safe-area-inset-bottom));z-index:2147483001;border:0;border-radius:20px;padding:10px 18px;background:#1f5bc4;color:#fff;font:600 14px system-ui,sans-serif;box-shadow:0 4px 14px rgba(0,0,0,.2)'; b.onclick = () => location.reload(); document.body.appendChild(b); };
+  const apply = () => { if (!newer || document.hidden) return; if (busy()) { offer(); return; } toast(`새 버전(v${newer})으로 바꾸는 중…`); setTimeout(() => location.reload(), 1200); };
+  async function check() {
+    if (checking) return; checking = true;
+    try {
+      const r = await fetch('./?v=' + Date.now(), { cache: 'no-store' }); const t = await r.text();
+      const b = +((t.match(/const BUILD = (\d+);/) || [])[1] || 0);
+      if (b > BUILD_NOW) { newer = b; apply(); }
+    } catch (e) {} finally { checking = false; }
+  }
+  setInterval(check, 5 * 60e3);
+  document.addEventListener('visibilitychange', () => { if (!document.hidden) { if (newer) apply(); else check(); } });
+  document.addEventListener('focusout', () => setTimeout(() => { if (newer && !busy() && document.getElementById('wNew')) apply(); }, 3000)); // 쓰기를 마치고 저장될 틈(3초)을 둔 뒤 바꿔요
+})();
