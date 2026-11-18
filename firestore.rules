@@ -42,6 +42,17 @@ service cloud.firestore {
           || (request.resource.data.kind == 'invite' && space(request.resource.data.sid).owner == request.auth.uid && request.resource.data.to in space(request.resource.data.sid).members)
           || (request.resource.data.kind in ['holidays', 'release'] && isCreator()));
     }
+    // 들어온 기록: 구성원이 일지를 열 때 자기 것만 남기고, 읽기는 그 일지의 주인만(90일 지나면 서버가 지워요)
+    match /vlog/{s}/v/{d} {
+      allow create: if signed() && request.resource.data.by == request.auth.uid && role(s) != ''
+        && request.resource.data.keys().hasOnly(['by', 'email', 'name', 'at', 'ua', 'b']);
+      allow read: if signed() && space(s).owner == request.auth.uid;
+    }
+    // 마지막 사용일·버전(사람마다 한 줄): 자기 것만 쓰고, 제작자만 읽어요(일지 내용·접속 기록은 아님)
+    match /usage/{u} {
+      allow write: if signed() && request.auth.uid == u && request.resource.data.keys().hasOnly(['email', 'name', 'at', 'b', 'sid', 'own']);
+      allow read: if isCreator();
+    }
     // 문제 보고: 로그인한 사람은 자기 이름으로 남길 수만 있고, 읽기는 제작자만(서버가 제작자 메일로 보내요)
     match /reports/{r} {
       allow create: if signed() && request.resource.data.by == request.auth.uid
