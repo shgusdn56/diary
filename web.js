@@ -641,14 +641,15 @@ const devOf = (ua) => {
   const st5 = document.createElement('style');
   st5.textContent = `#wVlList, #wVlUse { max-height: 46vh; overflow: auto; }
 .wvl { display: flex; gap: 8px; align-items: baseline; padding: 7px 0; border-bottom: 1px solid var(--line, #e3e7ee); font-size: 13px; } .wvl:last-child { border-bottom: 0; }
-.wvl b { font-weight: 600; flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; } .wvl span { flex: none; color: var(--mute, #6b7385); font-size: 12px; }
+.wvl { flex-wrap: wrap; } .wvl b { font-weight: 600; flex: none; white-space: nowrap; } .wvl span { flex: 1 1 auto; min-width: 0; text-align: right; color: var(--mute, #6b7385); font-size: 12px; }
+#wVlFold { margin-top: 10px; } #wVlFold > summary { list-style: none; cursor: pointer; margin: 0; display: flex; align-items: center; gap: 6px; } #wVlFold > summary::-webkit-details-marker { display: none; } #wVlFold > summary::after { content: '펼치기 ▾'; margin-left: auto; font-weight: 600; color: var(--mute, #6b7385); } #wVlFold[open] > summary::after { content: '접기 ▴'; }
 .wvlh { font-size: 12.5px; font-weight: 700; color: var(--blue-d, #174ea6); margin: 10px 0 2px; }`;
   document.head.appendChild(st5);
   document.body.insertAdjacentHTML('beforeend', `
 <div class="modal" id="wVlModal" role="dialog" aria-modal="true"><div class="sheet"><button class="wclose" type="button" aria-label="닫기">✕</button><h2>접속 기록</h2>
   <p class="note">이 일지에 누가 언제 들어왔는지예요(같은 기기는 10분에 한 번, 90일 보관). 일지 내용은 남지 않아요.</p>
   <div class="wvlh">사람별 마지막 접속</div><div id="wVlPeople"></div>
-  <div class="wvlh">최근 기록</div><div id="wVlList"></div>
+  <details id="wVlFold"><summary class="wvlh">최근 기록</summary><div id="wVlList"></div></details>
   <div id="wVlCr" hidden><div class="wvlh">다른 일지 주인 · 마지막 사용일과 버전 ${crTag()}</div><div id="wVlUse"></div></div>
   <div class="actions"><button class="ghost" id="wVlNo">닫기</button></div><div class="msg" id="wVlMsg"></div></div></div>`);
   $('wVlNo').addEventListener('click', () => close('wVlModal'));
