@@ -5,7 +5,7 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/fireba
 import { getAuth, GoogleAuthProvider, signInWithCredential, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
 import {
   initializeFirestore,
-  doc, collection, getDoc, getDocs, setDoc, updateDoc, deleteDoc, addDoc, onSnapshot,
+  doc, collection, getDoc, getDocs, getDocsFromServer, setDoc, updateDoc, deleteDoc, addDoc, onSnapshot,
   query, where, orderBy, limit, deleteField, FieldPath
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 
@@ -77,8 +77,10 @@ const roleKey = (sp) => Object.entries(sp.roles || {}).sort().map((x) => x.join(
 const rememberSpace = (u, sp) => { try { localStorage.setItem(SPKEY(u), JSON.stringify(sp)); localStorage.setItem('diary.space', sp.id); } catch (e) {} };
 async function pickSpace(u) {
   const email = u.email;
-  const qs = await getDocs(query(collection(fs, 'spaces'), where('members', 'array-contains', email)));
-  const list = qs.docs.map(d => ({ id: d.id, ...d.data() }));
+  // 꼭 서버에서 받아요: 연결이 막혀 빈 사본을 받으면 '일지가 없다'고 착각해 빈 일지를 새로 만들던 문제 방지
+  const qs = await getDocsFromServer(query(collection(fs, 'spaces'), where('members', 'array-contains', email)));
+  const list = qs.docs.map(d => ({ id: d.id, ...d.data() }))
+    .sort((a, b) => (a.created || 0) - (b.created || 0)); // 내 일지가 여럿이면 먼저 만든 것부터
   const want = new URLSearchParams(location.search).get('s') || (() => { try { return localStorage.getItem('diary.space'); } catch (e) { return null; } })();
   let sp = list.find(x => x.id === want) || list.find(x => x.owner === u.uid) || list[0];
   if (!sp) {
