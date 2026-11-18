@@ -231,9 +231,26 @@ exports.preReport = onDocumentCreated('prereports/{rid}', async (ev) => {
     lines: ['로그인 화면이 안 뜨고 멈춤', '화면 글: ' + (r.msg || ''), '멈춘 단계: ' + (r.step || ''), 'Google 로그인 단추 프로그램: ' + (r.gsi ? '받음' : '못 받음'), '오류: ' + (r.errs || '없음')] });
 });
 
+// ── 연결이 막혔을 때 실수로 생긴 빈 일지 정리: 주인이 먼저 만든 다른 일지가 있고, 혼자만 들어 있고, 비밀번호·날짜 기록이 하나도 없는 일지만 지워요
+async function cleanEmptySpaces() {
+  const all = await db.collection('spaces').get(), out = [];
+  const byOwner = {}; all.docs.forEach((d) => { const o = d.data().owner; if (o) (byOwner[o] = byOwner[o] || []).push(d); });
+  for (const d of all.docs) {
+    const x = d.data(); if (!x.created || !x.owner || (x.members || []).length > 1) continue;
+    if (Date.now() - x.created < 30 * 60e3) continue; // 막 만든 건 건드리지 않아요
+    const others = (byOwner[x.owner] || []).filter((o) => o.id !== d.id && (o.data().created || 0) < x.created);
+    if (!others.length) continue;
+    const [auth, days] = await Promise.all([d.ref.collection('meta').doc('auth').get(), d.ref.collection('days').limit(1).get()]);
+    if (auth.exists || !days.empty) continue;
+    await db.recursiveDelete(d.ref); out.push(d.id);
+  }
+  logger.info('empty spaces removed', out); return out;
+}
+
 exports.holidaysDaily = onSchedule({ schedule: '10 4 * * *', timeZone: 'Asia/Seoul', retryCount: 1 }, async () => {
   // 매일 새벽: 90일 지난 들어온 기록 지우기
   try { const old = await db.collectionGroup('v').where('at', '<', Date.now() - 90 * 864e5).limit(400).get(); await Promise.all(old.docs.filter((d) => d.ref.parent.parent && d.ref.parent.parent.parent.id === 'vlog').map((d) => d.ref.delete())); logger.info('vlog cleanup', old.size); } catch (e) { logger.error('vlog cleanup', e); }
+  try { await cleanEmptySpaces(); } catch (e) { logger.error('clean', e); }
   const r = await fillHolidays(); logger.info('holidays', r);
 });
 
@@ -276,8 +293,9 @@ exports.runJob = onDocumentCreated({ document: 'jobs/{jid}', memory: '2GiB', tim
       if (r.status !== 204) throw new Error('GitHub이 받아 주지 않았어요(' + r.status + '): ' + (await r.text()).replace(/\s+/g, ' ').slice(0, 160));
       await done({ msg: '올리기를 시작했어요. 2~3분 뒤 원래 주소에 반영돼요.' });
     } else if (j.kind === 'holidays') {
+      let gone = []; try { gone = await cleanEmptySpaces(); } catch (e) { logger.error('clean', e); }
       const r = await fillHolidays();
-      await done({ result: r, msg: `공휴일 ${r.found}개를 확인했어요 · 새로 넣음 ${r.add} · 이름 고침 ${r.upd} · 빠져서 지움 ${r.del}` });
+      await done({ result: r, msg: `공휴일 ${r.found}개를 확인했어요 · 새로 넣음 ${r.add} · 이름 고침 ${r.upd} · 빠져서 지움 ${r.del}` + (gone.length ? ` · 실수로 생긴 빈 일지 ${gone.length}개 정리` : '') });
     } else await done({ status: 'error', msg: '알 수 없는 작업' });
   } catch (e) {
     logger.error('job', j.kind, e);
