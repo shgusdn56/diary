@@ -389,7 +389,16 @@ swapBtn('mPdf', () => {
 });
 
 // 창 오른쪽 위 ✕: 그 창 닫기
-document.addEventListener('click', (e) => { const x = e.target.closest && e.target.closest('.sheet > .wclose'); if (x) { const md = x.closest('.modal'); if (md) md.classList.remove('on'); } });
+document.addEventListener('click', (e) => { const x = e.target.closest && e.target.closest('.sheet > .wclose'); if (!x) return; const md = x.closest('.modal'); if (!md) return;
+  // 일지 원래 창: 그 창의 '닫기'·'취소' 단추를 대신 눌러 줘요(닫을 때 하는 정리가 그대로 되게)
+  if (x.dataset.auto) { const c = [...md.querySelectorAll('.sheet button')].reverse().find((b) => b !== x && !b.hidden && b.offsetParent !== null && /^(닫기|취소|나중에)$/.test(b.textContent.trim())); if (c) { c.click(); return; } }
+  md.classList.remove('on'); });
+// 일지 원래 창들에도 오른쪽 위 ✕ 닫기 단추를 붙여요(이미 닫기 단추가 위에 있는 창은 빼고)
+const addX = () => document.querySelectorAll('.modal:not(.viewer) > .sheet').forEach((sh) => {
+  if (sh.querySelector(':scope > .wclose, .gx') || sh.closest('#confirmModal, #alertModal')) return;
+  const b = document.createElement('button'); b.className = 'wclose'; b.type = 'button'; b.dataset.auto = '1'; b.setAttribute('aria-label', '닫기'); b.textContent = '✕'; sh.prepend(b);
+});
+addX(); setTimeout(addX, 3000);
 
 // ── 업데이트 내역: 메뉴 '업데이트 내역'에서 언제 무엇이 바뀌었는지 보고, 새 버전이면 들어올 때 한 번 '새로 바뀐 점'을 띄워요
 const APP_SRC = [...document.scripts].map((s) => s.textContent).find((t) => /const RELEASES = \[\{"d"/.test(t)) || '';
