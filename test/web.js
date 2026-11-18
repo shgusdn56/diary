@@ -238,13 +238,21 @@ async function messaging() {
   if (!(await msgMod.isSupported())) return null;
   return msgMod.getMessaging(W.auth.app);
 }
+// 알림 등록은 시험판에서도 늘 원래 주소의 sw(/diary/)로 해요 — 시험판 sw로 따로 등록하면 둘이 번갈아 서로의 등록을 끊어 알림이 안 와요
+async function pushReg() {
+  const root = new URL(window.__WEBJS ? '../' : './', location.href);
+  let reg = await navigator.serviceWorker.getRegistration(root.href);
+  if (!reg || new URL(reg.scope).pathname !== root.pathname) reg = await navigator.serviceWorker.register(new URL('sw.js', root).href, { scope: root.pathname });
+  for (let i = 0; i < 50 && !reg.active; i++) await new Promise((ok) => setTimeout(ok, 100));
+  return reg;
+}
 async function hashOf(t) { const b = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(t)); return [...new Uint8Array(b)].slice(0, 12).map((x) => x.toString(16).padStart(2, '0')).join(''); }
 async function registerDevice(ask) {
   if (!('Notification' in window) || !('serviceWorker' in navigator)) throw new Error(isIOS && !standalone ? 'IOS' : 'NOSUP');
   if (ask && Notification.permission !== 'granted') { const p = await Notification.requestPermission(); if (p !== 'granted') throw new Error(p === 'denied' ? 'DENIED' : 'NOPERM'); }
   if (Notification.permission !== 'granted') throw new Error('NOPERM');
   const m = await messaging(); if (!m) throw new Error(isIOS && !standalone ? 'IOS' : 'NOSUP');
-  const reg = await navigator.serviceWorker.ready;
+  const reg = await pushReg();
   const token = await msgMod.getToken(m, { serviceWorkerRegistration: reg });
   if (!token) throw new Error('NOTOKEN');
   const id = await hashOf(token), old = devId();
