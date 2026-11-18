@@ -14,7 +14,7 @@ button.g { background: transparent; color: #1f5bc4; }
 <h1>생활일지 연결 진단</h1>
 <p>한 단계씩 시험해요. 끝나면 화면을 캡처해 Claude에게 보내 주세요.</p>
 <div id="out"></div>
-<button id="again" type="button">다시 시험</button><button id="lp" class="g" type="button">긴 기다림 방식으로 시험</button><button id="clear" class="g" type="button">저장된 사이트 파일 지우기</button>
+<button id="again" type="button">다시 시험</button><button id="lp" class="g" type="button">긴 기다림 방식으로 시험</button><button id="clear" class="g" type="button">저장된 사이트 파일 지우기</button><button id="clearDb" class="g" type="button">일지 기기 저장소 지우기</button>
 <script type="module">
 const out = document.getElementById('out');
 const line = (t, c) => { const d = document.createElement('div'); if (c) d.className = c; d.textContent = t; out.appendChild(d); return d; };
@@ -72,6 +72,21 @@ async function run() {
   line('끝', 'ok');
 }
 document.getElementById('again').onclick = () => location.reload();
+// 일지가 휴대폰에 저장해 둔 Firestore 저장소를 지워요(서버에 안 올라간 수정이 있으면 지우지 않아요). 일지는 다음에 열 때 서버에서 새로 받아요.
+document.getElementById('clearDb').onclick = async () => {
+  const names = indexedDB.databases ? (await indexedDB.databases()).map((d) => d.name).filter((n) => /firestore/.test(n || '')) : [];
+  if (!names.length) { line('지울 저장소가 없어요.', 'ok'); return; }
+  for (const n of names) {
+    const pend = await new Promise((ok) => { const rq = indexedDB.open(n); rq.onerror = () => ok(-1); rq.onsuccess = () => { const d = rq.result; try { if (!d.objectStoreNames.contains('mutations')) { d.close(); ok(0); return; } const c = d.transaction('mutations').objectStore('mutations').count(); c.onsuccess = () => { d.close(); ok(c.result); }; c.onerror = () => { d.close(); ok(-1); }; } catch (e) { d.close(); ok(-1); } }; });
+    if (pend !== 0) { line(`지우지 않았어요: 서버에 아직 안 올라간 수정이 있거나 확인하지 못했어요(${pend}). Claude에게 알려 주세요.`, 'bad'); return; }
+  }
+  if (!confirm('일지 탭을 모두 닫으셨나요? 휴대폰에 저장된 일지 사본을 지우고, 다음에 열 때 서버에서 새로 받아요. (일지 내용은 서버에 그대로예요)')) return;
+  for (const n of names) {
+    const r = await new Promise((ok) => { const rq = indexedDB.deleteDatabase(n); rq.onsuccess = () => ok('지움'); rq.onerror = () => ok('실패'); rq.onblocked = () => ok('막힘(열린 일지 탭을 닫아 주세요)'); });
+    line(`${n.split('/').slice(-2).join('/')}: ${r}`, r === '지움' ? 'ok' : 'bad');
+  }
+  line('끝났어요. 이제 일지를 다시 열어 주세요.', 'ok');
+};
 document.getElementById('lp').onclick = () => { location.search = /[?&]lp/.test(location.search) ? '' : '?lp=1'; };
 document.getElementById('clear').onclick = async () => {
   try { for (const r of await navigator.serviceWorker.getRegistrations()) await r.unregister(); for (const k of await caches.keys()) await caches.delete(k); line('저장된 사이트 파일을 지웠어요. 일지를 다시 열면 새로 받아요. (일지 내용은 그대로예요)', 'ok'); }
