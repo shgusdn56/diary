@@ -1,6 +1,6 @@
 // 웹앱에서만 쓰는 화면: 공유(초대), 내 이름, 로그아웃 — Claude 아티팩트 전용 메뉴는 숨겨요
 import {
-  doc, getDoc, onSnapshot, updateDoc, setDoc, addDoc, deleteDoc, collection, arrayUnion, arrayRemove, deleteField, FieldPath, query, orderBy, limit
+  doc, getDoc, onSnapshot, updateDoc, setDoc, addDoc, deleteDoc, collection, arrayUnion, arrayRemove, deleteField, FieldPath, query, orderBy, limit, getDocs
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 
 const W = window.__web, { fs, U, SID } = W;
@@ -477,4 +477,71 @@ if (CREATOR) {
   const openRep = () => { closeMenu(); drawList(); open('wRepModal'); seenAt = Date.now(); setDoc(seenRef, { at: seenAt }).catch(() => {}); setTimeout(drawRepN, 300); };
   if ($('wRepBtn')) $('wRepBtn').addEventListener('click', openRep);
   if (/[?&]reports=1/.test(location.search)) setTimeout(openRep, 1500); // 오류 보고 알림을 눌러 들어오면 바로 열어요
+}
+
+// ── 들어온 기록: 일지를 열 때마다(같은 기기는 10분에 한 번) 누가·언제·어떤 기기로 들어왔는지 남겨요. 주인만 봐요(90일 보관)
+// 그리고 사람마다 '마지막 사용일·버전' 한 줄(usage)을 남겨요 — 제작자만 봐요(일지 내용·접속 기록은 아님)
+const devOf = (ua) => {
+  const os = /iPhone|iPad|iPod/.test(ua) ? '아이폰' : /Android/.test(ua) ? '안드로이드' : /Windows/.test(ua) ? '윈도우' : /Mac OS X/.test(ua) ? '맥' : '기타';
+  const br = /SamsungBrowser/.test(ua) ? '삼성 인터넷' : /NAVER\(inapp|NAVER/.test(ua) ? '네이버 앱' : /KAKAOTALK/.test(ua) ? '카카오톡' : /Edg\//.test(ua) ? 'Edge' : /CriOS|Chrome\//.test(ua) ? 'Chrome' : /Safari\//.test(ua) ? 'Safari' : /Firefox\//.test(ua) ? 'Firefox' : '브라우저';
+  const app = matchMedia('(display-mode: standalone)').matches || navigator.standalone === true ? ' · 홈 화면 앱' : '';
+  return `${os} · ${br}${app}`;
+};
+(async () => {
+  const k = 'diary.vlog.' + SID; let last = 0;
+  try { last = +localStorage.getItem(k) || 0; } catch (e) {}
+  if (Date.now() - last > 10 * 60e3) {
+    try { localStorage.setItem(k, String(Date.now())); } catch (e) {}
+    addDoc(collection(fs, `vlog/${SID}/v`), { by: U.uid, email: U.email || '', name: myName(), at: Date.now(), ua: devOf(navigator.userAgent), b: BUILD_NOW }).catch(() => {});
+  }
+  setDoc(doc(fs, 'usage', U.uid), { email: U.email || '', name: myName(), at: Date.now(), b: BUILD_NOW, sid: SID, own: isOwner() }, { merge: true }).catch(() => {});
+})();
+// 알려 두기: 구성원은 '주인이 들어온 기록을 볼 수 있어요', 다른 일지 주인은 '제작자는 마지막 사용일·버전만 봐요'
+(() => {
+  const note = $('wShareNote'); if (!note) return;
+  const add = () => {
+    if (note.querySelector('.wvnote')) return;
+    const s = document.createElement('span'); s.className = 'wvnote';
+    s.textContent = isOwner() ? ' 함께 쓰는 분이 언제 들어왔는지(기기 종류까지)는 일지 주인만 볼 수 있어요.' + (CREATOR ? '' : ' 제작자는 이 일지의 마지막 사용일과 버전만 볼 수 있어요(일지 내용·접속 기록은 볼 수 없어요).') : ' 일지 주인은 누가 언제 들어왔는지(기기 종류까지) 볼 수 있어요. 일지 내용 말고 들어온 시각만 남아요.';
+    note.appendChild(s);
+  };
+  new MutationObserver(add).observe(note, { childList: true, characterData: true, subtree: true }); add();
+})();
+// 메뉴 '접속 기록'(일지 주인): 사람별 마지막 접속 + 최근 기록 / 제작자는 '다른 일지 주인'의 마지막 사용일·버전도
+{
+  const st5 = document.createElement('style');
+  st5.textContent = `#wVlList, #wVlUse { max-height: 46vh; overflow: auto; }
+.wvl { display: flex; gap: 8px; align-items: baseline; padding: 7px 0; border-bottom: 1px solid var(--line, #e3e7ee); font-size: 13px; } .wvl:last-child { border-bottom: 0; }
+.wvl b { font-weight: 600; flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; } .wvl span { flex: none; color: var(--mute, #6b7385); font-size: 12px; }
+.wvlh { font-size: 12.5px; font-weight: 700; color: var(--blue-d, #174ea6); margin: 10px 0 2px; }`;
+  document.head.appendChild(st5);
+  document.body.insertAdjacentHTML('beforeend', `
+<div class="modal" id="wVlModal" role="dialog" aria-modal="true"><div class="sheet"><button class="wclose" type="button" aria-label="닫기">✕</button><h2>접속 기록</h2>
+  <p class="note">이 일지에 누가 언제 들어왔는지예요(같은 기기는 10분에 한 번, 90일 보관). 일지 내용은 남지 않아요.</p>
+  <div class="wvlh">사람별 마지막 접속</div><div id="wVlPeople"></div>
+  <div class="wvlh">최근 기록</div><div id="wVlList"></div>
+  <div id="wVlCr" hidden><div class="wvlh">다른 일지 주인 · 마지막 사용일과 버전 ${crTag()}</div><div id="wVlUse"></div></div>
+  <div class="actions"><button class="ghost" id="wVlNo">닫기</button></div><div class="msg" id="wVlMsg"></div></div></div>`);
+  $('wVlNo').addEventListener('click', () => close('wVlModal'));
+  const acct = $('wAcct');
+  if (acct) acct.insertAdjacentHTML('afterbegin', `<button class="mrowbtn" id="wVlBtn" type="button"${isOwner() ? '' : ' hidden'}><span>접속 기록</span><span class="chev">›</span></button>`);
+  const when = (t) => { const d = new Date(t), m = Math.round((Date.now() - t) / 60e3); return m < 1 ? '방금' : m < 60 ? `${m}분 전` : m < 1440 ? `${Math.round(m / 60)}시간 전` : d.toLocaleString('ko-KR', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' }); };
+  const who = (x) => esc(x.name ? `${x.name} (${x.email || ''})` : (x.email || x.by || ''));
+  async function openVl() {
+    closeMenu(); say('wVlMsg', '불러오는 중…'); $('wVlPeople').innerHTML = ''; $('wVlList').innerHTML = ''; $('wVlCr').hidden = !CREATOR; open('wVlModal');
+    try {
+      const q = await getDocs(query(collection(fs, `vlog/${SID}/v`), orderBy('at', 'desc'), limit(200)));
+      const L = q.docs.map((d) => d.data()), seen = new Map();
+      for (const x of L) if (!seen.has(x.by)) seen.set(x.by, x);
+      $('wVlPeople').innerHTML = [...seen.values()].map((x) => `<div class="wvl"><b>${who(x)}</b><span>${esc(when(x.at))} · ${esc(x.ua || '')}</span></div>`).join('') || '<p class="note">아직 기록이 없어요.</p>';
+      $('wVlList').innerHTML = L.slice(0, 60).map((x) => `<div class="wvl"><b>${who(x)}</b><span>${esc(when(x.at))} · ${esc(x.ua || '')}${x.b ? ' · v' + esc(x.b) : ''}</span></div>`).join('') || '<p class="note">아직 기록이 없어요.</p>';
+      if (CREATOR) {
+        const u = await getDocs(query(collection(fs, 'usage'), orderBy('at', 'desc'), limit(100)));
+        const others = u.docs.map((d) => ({ id: d.id, ...d.data() })).filter((x) => x.id !== U.uid && x.own);
+        $('wVlUse').innerHTML = others.map((x) => `<div class="wvl"><b>${who(x)}</b><span>${esc(when(x.at))}${x.b ? ' · v' + esc(x.b) : ''}${x.b && x.b < BUILD_NOW ? ' (옛 버전)' : ''}</span></div>`).join('') || '<p class="note">아직 다른 일지 주인이 없어요.</p>';
+      }
+      say('wVlMsg', '');
+    } catch (er) { say('wVlMsg', '불러오지 못했어요: ' + (er.code || er.message), true); }
+  }
+  if ($('wVlBtn')) $('wVlBtn').addEventListener('click', openVl);
 }
