@@ -139,8 +139,10 @@ async function runDiag() {
   // 진단 내용을 서버에 남겨요 → 제작자에게 메일(같은 사람은 1시간에 한 번)
   const sentOk = await report('stuck', L);
   // 스스로 고치기: 기본 방식에서 막혔으면 이 기기는 '긴 기다림' 방식으로 바꿔 기억하고 한 번 다시 열어요
-  if (!FORCE_LP && (!DIAG.ok || lockStuck()) && !/[?&]diag/.test(location.search)) {
-    try { localStorage.setItem('diary.lp', '1'); } catch (e) {}
+  // 스스로 고치기: 막혔으면 연결 방식을 반대로 바꿔(기본 ↔ 긴 기다림) 기억하고 한 번 다시 열어요(같은 창에서는 한 번만)
+  let healed = false; try { healed = sessionStorage.getItem('diary.healed') === '1'; } catch (e) {}
+  if (!healed && (!DIAG.ok || lockStuck()) && !/[?&]diag/.test(location.search) && !(INAPP && FORCE_LP && !LP_SAVED)) {
+    try { sessionStorage.setItem('diary.healed', '1'); if (FORCE_LP) localStorage.removeItem('diary.lp'); else localStorage.setItem('diary.lp', '1'); } catch (e) {}
     sent = '연결 방식을 바꿔서 다시 열어요…'; draw(); box.prepend(x);
     setTimeout(() => location.reload(), 2500); return;
   }
@@ -201,7 +203,8 @@ const docApi = (p) => {
       catch (e) { if (e && e.code === 'not-found') { const o = {}; for (const [k, v] of ent) if (!(v && typeof v === 'object' && v.__delete__)) o[k] = v; await setDoc(ref(), o, { merge: true }); } else throw e; }
     }),
     delete: () => W(async () => { await deleteDoc(ref()); }),
-    onSnapshot: (cb, err) => { DIAG.watch(p); return onSnapshot(ref(), { includeMetadataChanges: false }, (s) => { DIAG.mark(p, s.metadata.fromCache); cb(dsnap(s)); }, (e) => { DIAG.err(p, e); if (err) err(e); }); },
+    // 서버에 닿지 못해 '빈 사본(없음)'만 오는 건 넘겨요 — 없는 걸로 잘못 알고 비밀번호를 새로 정하라는 등 엉뚱한 화면이 뜨지 않게
+    onSnapshot: (cb, err) => { DIAG.watch(p); return onSnapshot(ref(), { includeMetadataChanges: false }, (s) => { DIAG.mark(p, s.metadata.fromCache); if (s.metadata.fromCache && !s.exists() && !s.metadata.hasPendingWrites) return; cb(dsnap(s)); }, (e) => { DIAG.err(p, e); if (err) err(e); }); },
     collection: (c) => collApi(`${p}/${c}`)
   };
 };
@@ -215,7 +218,7 @@ const collApi = (p, cons = []) => {
     limit: (n) => collApi(p, [...cons, limit(n)]),
     get: async () => qsnap(await getDocs(q())),
     add: (x) => W(async () => { const r = await addDoc(collection(fs, full(p)), clean(x)); return { id: r.id }; }),
-    onSnapshot: (cb, err) => { DIAG.watch(p); return onSnapshot(q(), (s) => { DIAG.mark(p, s.metadata.fromCache); cb(qsnap(s)); }, (e) => { DIAG.err(p, e); if (err) err(e); }); }
+    onSnapshot: (cb, err) => { DIAG.watch(p); return onSnapshot(q(), (s) => { DIAG.mark(p, s.metadata.fromCache); if (s.metadata.fromCache && s.empty && !s.metadata.hasPendingWrites) return; cb(qsnap(s)); }, (e) => { DIAG.err(p, e); if (err) err(e); }); }
   };
 };
 const db = { doc: docApi, collection: (p) => collApi(p) };
