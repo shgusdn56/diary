@@ -102,8 +102,11 @@ async function runDiag() {
   if ((!stuck() && !/[?&]diag/.test(location.search)) || document.getElementById('wDiag')) return;
   const box = document.createElement('div'); box.id = 'wDiag';
   box.style.cssText = 'position:fixed;left:8px;right:8px;bottom:calc(8px + env(safe-area-inset-bottom));z-index:2147483002;background:#fff8e1;color:#5f4300;border:1px solid #f0c36d;border-radius:12px;padding:10px 12px;font:12.5px/1.5 system-ui,sans-serif;white-space:pre-wrap;word-break:break-all;max-height:45vh;overflow:auto';
-  const L = ['연결 진단 (이 화면을 캡처해 Claude에게 보내 주세요)', `시각 ${new Date().toLocaleString('ko-KR')} · 온라인 ${navigator.onLine} · ${navigator.userAgent.replace(/^.*?\) /, '').slice(0, 60)}`];
-  const draw = () => { box.textContent = L.join('\n'); };
+  // 제작자에게는 자세한 진단을, 다른 분에게는 쉬운 안내만 보여 주고 진단 내용은 자동으로 보고해요(reports → 제작자 메일)
+  const isCr = !!(window.__web && window.__web.creator);
+  const L = ['연결 진단', `시각 ${new Date().toLocaleString('ko-KR')} · 온라인 ${navigator.onLine} · ${navigator.userAgent.replace(/^.*?\) /, '').slice(0, 60)}`];
+  let sent = '';
+  const draw = () => { box.textContent = isCr ? L.join('\n') + (sent ? '\n' + sent : '') : '일지를 불러오는 게 늦어지고 있어요. 잠시 뒤 새로고침해 보세요.\n' + (sent || '문제 내용을 정리하는 중…'); };
   const x = document.createElement('button'); x.textContent = '닫기'; x.style.cssText = 'float:right;margin-left:8px;border:1px solid #f0c36d;background:#fff;border-radius:8px;padding:2px 8px';
   x.onclick = () => box.remove();
   draw(); box.prepend(x); document.body.appendChild(box);
@@ -125,7 +128,23 @@ async function runDiag() {
     const t = await U.getIdToken(), r = await fetch(`https://firestore.googleapis.com/v1/projects/life-diary-1c3b8/databases/(default)/documents/spaces/${SID}/days?pageSize=300&mask.fieldPaths=updatedAt`, { headers: { Authorization: 'Bearer ' + t } });
     const j = r.ok ? await r.json() : null; add(`날짜 기록 직접 읽기: ${r.status}` + (j ? ` · ${(j.documents || []).length}개` : ''));
   } catch (e) { add('날짜 기록 직접 읽기: 실패 ' + e.message); }
+  // 진단 내용을 서버에 남겨요 → 제작자에게 메일(같은 사람은 1시간에 한 번)
+  if (await report('stuck', L)) { sent = '문제 내용은 자동으로 전달됐어요. 따로 알리지 않으셔도 돼요.'; draw(); box.prepend(x); }
+  if (!isCr) { const rb = document.createElement('button'); rb.textContent = '새로고침'; rb.style.cssText = x.style.cssText; rb.onclick = () => location.reload(); box.prepend(rb); }
 }
+// 문제 보고: reports에 남기면 서버가 제작자 메일로 보내요
+async function report(kind, lines) {
+  try {
+    if (!U || !SID) return false;
+    await addDoc(collection(fs, 'reports'), { kind, by: U.uid, email: U.email || '', sid: SID, at: Date.now(), url: location.href.slice(0, 200), ua: navigator.userAgent.slice(0, 220), lines: (lines || []).map((s) => String(s).slice(0, 600)).slice(0, 40) });
+    return true;
+  } catch (e) { console.warn('[report]', e && e.code); return false; }
+}
+// 화면 코드 오류도 몇 개까지 자동으로 보고해요(같은 내용은 한 번)
+const errSeen = new Set();
+const onErr = (msg, where) => { if (!U || errSeen.size >= 3) return; const k = String(msg).slice(0, 200); if (errSeen.has(k)) return; errSeen.add(k); report('error', ['화면 오류: ' + k, where || '']); };
+window.addEventListener('error', (e) => onErr(e.message, `${(e.filename || '').split('/').pop()}:${e.lineno || ''}`));
+window.addEventListener('unhandledrejection', (e) => { const r = e.reason; onErr((r && (r.message || r.code)) || r, 'promise'); });
 
 // ── 아티팩트 저장(db)과 같은 모양으로: 경로는 spaces/{id}/… 아래로, 'data/users/{나}/…'(나만 보는 칸)는 private/{나}/s_{id}/… 로
 const full = (p) => {
