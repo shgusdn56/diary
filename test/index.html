@@ -8511,6 +8511,17 @@ const remote = new Map(), rows = new Map(), pending = new Map(), inflight = new 
 <script>window.__WEBJS = new URL("web.js", location.href).href;</script>
 <script type="module" src="../shim.js"></script>
 <script>if ('serviceWorker' in navigator) { navigator.serviceWorker.register('sw.js').catch(() => {}); navigator.serviceWorker.addEventListener('message', (e) => { if (e.data !== 'diary-update' || document.getElementById('wNew')) return; const b = document.createElement('button'); b.id = 'wNew'; b.type = 'button'; b.textContent = '새 버전이 있어요 · 눌러서 새로고침'; b.style.cssText = 'position:fixed;left:50%;transform:translateX(-50%);bottom:calc(16px + env(safe-area-inset-bottom));z-index:2147483001;border:0;border-radius:20px;padding:10px 18px;background:#1f5bc4;color:#fff;font:600 14px system-ui,sans-serif;box-shadow:0 4px 14px rgba(0,0,0,.2)'; b.onclick = () => location.reload(); document.body.appendChild(b); }); }</script>
-<div style="position:fixed;left:8px;bottom:calc(8px + env(safe-area-inset-bottom));z-index:2147483003;background:#e8710a;color:#fff;font:700 12px system-ui,sans-serif;padding:3px 10px;border-radius:10px;pointer-events:none">시험판</div>
+<div id="testBadge" style="position:fixed;left:8px;bottom:calc(8px + env(safe-area-inset-bottom));z-index:2147483003;background:#e8710a;color:#fff;font:700 12px/1.4 system-ui,sans-serif;padding:4px 10px;border-radius:10px;pointer-events:none;max-width:70vw">시험판 · 비교하는 중…</div>
+<script>(async () => {
+  const b = document.getElementById('testBadge');
+  const g = async (u) => { try { const r = await fetch(u + '?x=' + Date.now(), { cache: 'no-store' }); return r.ok ? await r.text() : ''; } catch (e) { return ''; } };
+  const [li, ti, lw, tw, ls, ts] = await Promise.all([g('../'), g('./'), g('../web.js'), g('web.js'), g('../sw.js'), g('sw.js')]);
+  const bn = (s) => (s.match(/const BUILD = (\d+)/) || [])[1] || '?';
+  const lb = bn(li), tb = bn(ti), diff = [];
+  if (lb !== tb) diff.push('일지 화면'); if (lw !== tw) diff.push('웹앱 창'); if (ls !== ts) diff.push('빠르게 열기');
+  if (!li || !lw) { b.textContent = '시험판 v' + tb + ' · 원래 주소와 비교하지 못했어요'; return; }
+  if (!diff.length) { b.style.background = '#188038'; b.textContent = '시험판 v' + tb + ' · 원래 주소에 올라감(같아요)'; }
+  else b.textContent = '시험판 v' + tb + ' · 아직 안 올림 (원래 v' + lb + ' · 다른 곳: ' + diff.join(', ') + ')';
+})();</script>
 </body>
 </html>
