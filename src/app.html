@@ -3640,24 +3640,6 @@ const remote = new Map(), rows = new Map(), pending = new Map(), inflight = new 
     if (mid) { const vr = r.view.getBoundingClientRect(), off = (visTop - lr.top) * (lr.height ? vr.height / lr.height : 1); d = vr.top + off - visTop; }
     else d = (anchor || r.view).getBoundingClientRect().top - before;
     if (d) scroller.scrollTop += d;
-    // 나온 직후 키보드가 내려가고 머리줄·서식 줄이 바뀌면서 화면이 한 번 더 밀려요 — 잠깐 동안 보이던 자리를 그대로 붙잡아요(튀는 움직임 없애기)
-    if (COARSE()) {
-      const vv = window.visualViewport, visBot = vv ? vv.offsetTop + vv.height : innerHeight;
-      let pin = anchor;
-      if (!pin) { for (const dd of list.children) { if (dd === r.el || !dd.classList || !dd.classList.contains('day')) continue; const q = dd.getBoundingClientRect(); if (q.bottom > visTop && q.top < visBot) { pin = dd; break; } if (q.top >= visBot) break; } }
-      if (!pin) pin = r.el;
-      pinScroll(pin, 900);
-    }
-  }
-  // 화면을 잠깐 붙잡기: el이 지금 화면 위치에서 움직이지 않게, ms 동안 스크롤을 맞춰요. 손가락을 대면 바로 멈춰요
-  let pinStop = null;
-  function pinScroll(el, ms) {
-    if (pinStop) pinStop();
-    const y0 = el.getBoundingClientRect().top, t0 = performance.now(); let raf = 0, live = true;
-    const stop = () => { live = false; cancelAnimationFrame(raf); window.removeEventListener('touchstart', stop, true); window.removeEventListener('wheel', stop, true); if (pinStop === stop) pinStop = null; };
-    window.addEventListener('touchstart', stop, true); window.addEventListener('wheel', stop, true);
-    const step = () => { if (!live) return; if (!el.isConnected || performance.now() - t0 > ms) { stop(); return; } const dy = el.getBoundingClientRect().top - y0; if (Math.abs(dy) >= 1) scroller.scrollTop += dy; raf = requestAnimationFrame(step); };
-    raf = requestAnimationFrame(step); pinStop = stop;
   }
   function closeLogSoon(r) {
     closeLog(r); return;
