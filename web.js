@@ -389,7 +389,16 @@ swapBtn('mPdf', () => {
 });
 
 // 창 오른쪽 위 ✕: 그 창 닫기
-document.addEventListener('click', (e) => { const x = e.target.closest && e.target.closest('.sheet > .wclose'); if (x) { const md = x.closest('.modal'); if (md) md.classList.remove('on'); } });
+document.addEventListener('click', (e) => { const x = e.target.closest && e.target.closest('.sheet > .wclose'); if (!x) return; const md = x.closest('.modal'); if (!md) return;
+  // 일지 원래 창: 그 창의 '닫기'·'취소' 단추를 대신 눌러 줘요(닫을 때 하는 정리가 그대로 되게)
+  if (x.dataset.auto) { const c = [...md.querySelectorAll('.sheet button')].reverse().find((b) => b !== x && !b.hidden && b.offsetParent !== null && /^(닫기|취소|나중에)$/.test(b.textContent.trim())); if (c) { c.click(); return; } }
+  md.classList.remove('on'); });
+// 일지 원래 창들에도 오른쪽 위 ✕ 닫기 단추를 붙여요(이미 닫기 단추가 위에 있는 창은 빼고)
+const addX = () => document.querySelectorAll('.modal:not(.viewer) > .sheet').forEach((sh) => {
+  if (sh.querySelector(':scope > .wclose, .gx') || sh.closest('#confirmModal, #alertModal')) return;
+  const b = document.createElement('button'); b.className = 'wclose'; b.type = 'button'; b.dataset.auto = '1'; b.setAttribute('aria-label', '닫기'); b.textContent = '✕'; sh.prepend(b);
+});
+addX(); setTimeout(addX, 3000);
 
 // ── 업데이트 내역: 메뉴 '업데이트 내역'에서 언제 무엇이 바뀌었는지 보고, 새 버전이면 들어올 때 한 번 '새로 바뀐 점'을 띄워요
 const APP_SRC = [...document.scripts].map((s) => s.textContent).find((t) => /const RELEASES = \[\{"d"/.test(t)) || '';
@@ -606,6 +615,8 @@ const devOf = (ua) => {
   return `${os} · ${br}${app}`;
 };
 (async () => {
+  // 일지에 정해 둔 내 이름을 먼저 불러와서 남겨요(아직 안 불러왔으면 Google 계정 이름이 남던 문제)
+  try { const x = await getDoc(doc(fs, `spaces/${SID}/profiles/${U.uid}`)); if (x.exists() && x.data().name) W.profCache[U.uid] = { ...(W.profCache[U.uid] || {}), ...x.data() }; } catch (e) {}
   const k = 'diary.vlog.' + SID; let last = 0;
   try { last = +localStorage.getItem(k) || 0; } catch (e) {}
   if (Date.now() - last > 10 * 60e3) {
@@ -630,27 +641,31 @@ const devOf = (ua) => {
   const st5 = document.createElement('style');
   st5.textContent = `#wVlList, #wVlUse { max-height: 46vh; overflow: auto; }
 .wvl { display: flex; gap: 8px; align-items: baseline; padding: 7px 0; border-bottom: 1px solid var(--line, #e3e7ee); font-size: 13px; } .wvl:last-child { border-bottom: 0; }
-.wvl b { font-weight: 600; flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; } .wvl span { flex: none; color: var(--mute, #6b7385); font-size: 12px; }
+.wvl { flex-wrap: wrap; } .wvl b { font-weight: 600; flex: none; white-space: nowrap; } .wvl span { flex: 1 1 auto; min-width: 0; text-align: right; color: var(--mute, #6b7385); font-size: 12px; }
+#wVlFold { margin-top: 10px; } #wVlFold > summary { list-style: none; cursor: pointer; margin: 0; display: flex; align-items: center; gap: 6px; } #wVlFold > summary::-webkit-details-marker { display: none; } #wVlFold > summary::after { content: '펼치기 ▾'; margin-left: auto; font-weight: 600; color: var(--mute, #6b7385); } #wVlFold[open] > summary::after { content: '접기 ▴'; }
 .wvlh { font-size: 12.5px; font-weight: 700; color: var(--blue-d, #174ea6); margin: 10px 0 2px; }`;
   document.head.appendChild(st5);
   document.body.insertAdjacentHTML('beforeend', `
 <div class="modal" id="wVlModal" role="dialog" aria-modal="true"><div class="sheet"><button class="wclose" type="button" aria-label="닫기">✕</button><h2>접속 기록</h2>
   <p class="note">이 일지에 누가 언제 들어왔는지예요(같은 기기는 10분에 한 번, 90일 보관). 일지 내용은 남지 않아요.</p>
   <div class="wvlh">사람별 마지막 접속</div><div id="wVlPeople"></div>
-  <div class="wvlh">최근 기록</div><div id="wVlList"></div>
+  <details id="wVlFold"><summary class="wvlh">최근 기록</summary><div id="wVlList"></div></details>
   <div id="wVlCr" hidden><div class="wvlh">다른 일지 주인 · 마지막 사용일과 버전 ${crTag()}</div><div id="wVlUse"></div></div>
   <div class="actions"><button class="ghost" id="wVlNo">닫기</button></div><div class="msg" id="wVlMsg"></div></div></div>`);
   $('wVlNo').addEventListener('click', () => close('wVlModal'));
   const acct = $('wAcct');
   if (acct) acct.insertAdjacentHTML('afterbegin', `<button class="mrowbtn" id="wVlBtn" type="button"${isOwner() ? '' : ' hidden'}><span>접속 기록</span><span class="chev">›</span></button>`);
   const when = (t) => { const d = new Date(t), m = Math.round((Date.now() - t) / 60e3); return m < 1 ? '방금' : m < 60 ? `${m}분 전` : m < 1440 ? `${Math.round(m / 60)}시간 전` : d.toLocaleString('ko-KR', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' }); };
-  const who = (x) => esc(x.name ? `${x.name} (${x.email || ''})` : (x.email || x.by || ''));
+  // 이름은 일지에 지금 정해 둔 이름(프로필)으로 보여 줘요 — 기록에 남은 옛 이름(Google 계정 이름)보다 먼저
+  const pn = {};
+  const who = (x) => esc(pn[x.by] || x.name || x.email || x.by || '');
   async function openVl() {
     closeMenu(); say('wVlMsg', '불러오는 중…'); $('wVlPeople').innerHTML = ''; $('wVlList').innerHTML = ''; $('wVlCr').hidden = !CREATOR; open('wVlModal');
     try {
       const q = await getDocs(query(collection(fs, `vlog/${SID}/v`), orderBy('at', 'desc'), limit(200)));
       const L = q.docs.map((d) => d.data()), seen = new Map();
       for (const x of L) if (!seen.has(x.by)) seen.set(x.by, x);
+      await Promise.all([...seen.keys()].map(async (id) => { try { const p = await getDoc(doc(fs, `spaces/${SID}/profiles/${id}`)); if (p.exists() && p.data().name) pn[id] = p.data().name; } catch (e) {} }));
       $('wVlPeople').innerHTML = [...seen.values()].map((x) => `<div class="wvl"><b>${who(x)}</b><span>${esc(when(x.at))} · ${esc(x.ua || '')}</span></div>`).join('') || '<p class="note">아직 기록이 없어요.</p>';
       $('wVlList').innerHTML = L.slice(0, 60).map((x) => `<div class="wvl"><b>${who(x)}</b><span>${esc(when(x.at))} · ${esc(x.ua || '')}${x.b ? ' · v' + esc(x.b) : ''}</span></div>`).join('') || '<p class="note">아직 기록이 없어요.</p>';
       if (CREATOR) {
