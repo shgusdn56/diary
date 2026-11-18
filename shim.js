@@ -28,7 +28,10 @@ const INAPP = /NAVER\(inapp|KAKAOTALK|Instagram|FBAN|FBAV|Line\/|DaumApps|Whale\
 // 기기에 사본을 저장하지 않고 창마다 서버에서 바로 받아요: 같은 일지를 여러 창(탭·홈 화면 앱·알림으로 연 창)에서
 // 열면 휴대폰 사본 저장소를 두고 다투다 한 창이 서버 연결을 놓쳐 '데이터를 불러오지 못했어요'가 뜨던 문제
 // 앱 안 브라우저는 실시간 연결을 '긴 기다림' 방식으로(그런 브라우저에서 기본 방식이 멈추는 경우가 있어서)
-fs = initializeFirestore(app, INAPP ? { ignoreUndefinedProperties: true, experimentalForceLongPolling: true } : { ignoreUndefinedProperties: true });
+// 이 기기에서 한 번 막혔던 적이 있으면(아래 runDiag가 기억) 처음부터 '긴 기다림' 방식으로 열어요
+let LP_SAVED = false; try { LP_SAVED = localStorage.getItem('diary.lp') === '1'; } catch (e) {}
+const FORCE_LP = INAPP || LP_SAVED || /[?&]lp=1/.test(location.search);
+fs = initializeFirestore(app, FORCE_LP ? { ignoreUndefinedProperties: true, experimentalForceLongPolling: true } : { ignoreUndefinedProperties: true });
 
 // 앱 안 브라우저로 열었으면 맨 위에 'Chrome(또는 기본 브라우저)으로 열기' 안내를 띄워요
 if (INAPP) {
@@ -129,15 +132,29 @@ async function runDiag() {
     const t = await U.getIdToken(), r = await fetch(`https://firestore.googleapis.com/v1/projects/life-diary-1c3b8/databases/(default)/documents/spaces/${SID}/days?pageSize=300&mask.fieldPaths=updatedAt`, { headers: { Authorization: 'Bearer ' + t } });
     const j = r.ok ? await r.json() : null; add(`날짜 기록 직접 읽기: ${r.status}` + (j ? ` · ${(j.documents || []).length}개` : ''));
   } catch (e) { add('날짜 기록 직접 읽기: 실패 ' + e.message); }
+  L.push('연결 방식: ' + (FORCE_LP ? '긴 기다림' : '기본') + (LP_SAVED ? '(이 기기에 기억됨)' : ''));
   // 진단 내용을 서버에 남겨요 → 제작자에게 메일(같은 사람은 1시간에 한 번)
-  if (await report('stuck', L)) { sent = '문제 내용은 자동으로 전달됐어요. 따로 알리지 않으셔도 돼요.'; draw(); box.prepend(x); }
+  const sentOk = await report('stuck', L);
+  // 스스로 고치기: 기본 방식에서 막혔으면 이 기기는 '긴 기다림' 방식으로 바꿔 기억하고 한 번 다시 열어요
+  if (!FORCE_LP && !DIAG.ok && !/[?&]diag/.test(location.search)) {
+    try { localStorage.setItem('diary.lp', '1'); } catch (e) {}
+    sent = '연결 방식을 바꿔서 다시 열어요…'; draw(); box.prepend(x);
+    setTimeout(() => location.reload(), 2500); return;
+  }
+  if (sentOk) { sent = '문제 내용은 자동으로 전달됐어요. 따로 알리지 않으셔도 돼요.'; draw(); box.prepend(x); }
   if (!isCr) { const rb = document.createElement('button'); rb.textContent = '새로고침'; rb.style.cssText = x.style.cssText; rb.onclick = () => location.reload(); box.prepend(rb); }
 }
 // 문제 보고: reports에 남기면 서버가 제작자 메일로 보내요
 async function report(kind, lines) {
   try {
     if (!U || !SID) return false;
-    await addDoc(collection(fs, 'reports'), { kind, by: U.uid, email: U.email || '', sid: SID, at: Date.now(), url: location.href.slice(0, 200), ua: navigator.userAgent.slice(0, 220), lines: (lines || []).map((s) => String(s).slice(0, 600)).slice(0, 40) });
+    // 일지 연결(실시간)이 막혀 있을 때도 보내지도록, 서버에 직접(REST) 보내요
+    const S = (v) => ({ stringValue: String(v || '') });
+    const fields = { kind: S(kind), by: S(U.uid), email: S(U.email), sid: S(SID), at: { integerValue: String(Date.now()) }, url: S(location.href.slice(0, 200)), ua: S(navigator.userAgent.slice(0, 220)),
+      lines: { arrayValue: { values: (lines || []).slice(0, 40).map((s) => S(String(s).slice(0, 600))) } } };
+    const t = await U.getIdToken();
+    const r = await fetch('https://firestore.googleapis.com/v1/projects/life-diary-1c3b8/databases/(default)/documents/reports', { method: 'POST', headers: { Authorization: 'Bearer ' + t, 'Content-Type': 'application/json' }, body: JSON.stringify({ fields }) });
+    if (!r.ok) { console.warn('[report]', r.status, await r.text()); return false; }
     return true;
   } catch (e) { console.warn('[report]', e && e.code); return false; }
 }

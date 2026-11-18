@@ -25,7 +25,7 @@ head_add = '''<script>
     var g = document.getElementById('gate'), m = document.getElementById('gateMsg');
     if (g && !g.hidden && m && /불러오는 중|여는 중|로그인 중/.test(m.textContent || '') && (m.textContent || '').indexOf('기다려') < 0) m.textContent += hint;
     var lk = document.getElementById('lock'), lt = document.getElementById('lkText');
-    if (lk && lk.offsetParent !== null && lt && /불러오는 중/.test(lt.textContent || '') && (lt.textContent || '').indexOf('기다려') < 0) lt.textContent += hint;
+    if (lk && getComputedStyle(lk).display !== 'none' && lt && /불러오는 중/.test(lt.textContent || '') && (lt.textContent || '').indexOf('기다려') < 0) lt.textContent += hint;
   }, 6000);
   setTimeout(function () {
     var g = document.getElementById('gate'), m = document.getElementById('gateMsg'); if (!g || g.hidden || !m) return;
