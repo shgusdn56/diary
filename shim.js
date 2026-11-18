@@ -109,7 +109,7 @@ async function runDiag() {
   const box = document.createElement('div'); box.id = 'wDiag';
   box.style.cssText = 'position:fixed;left:8px;right:8px;bottom:calc(8px + env(safe-area-inset-bottom));z-index:2147483002;background:#fff8e1;color:#5f4300;border:1px solid #f0c36d;border-radius:12px;padding:10px 12px;font:12.5px/1.5 system-ui,sans-serif;white-space:pre-wrap;word-break:break-all;max-height:45vh;overflow:auto';
   // 제작자에게는 자세한 진단을, 다른 분에게는 쉬운 안내만 보여 주고 진단 내용은 자동으로 보고해요(reports → 제작자 메일)
-  const isCr = !!(window.__web && window.__web.creator);
+  const isCr = !!(window.__web && window.__web.creator) || /[?&]diag/.test(location.search); // 주소 끝 ?diag면 누구에게나 자세한 진단
   const L = ['연결 진단', `시각 ${new Date().toLocaleString('ko-KR')} · 온라인 ${navigator.onLine} · ${navigator.userAgent.replace(/^.*?\) /, '').slice(0, 60)}`];
   let sent = '';
   const draw = () => { box.textContent = isCr ? L.join('\n') + (sent ? '\n' + sent : '') : '일지를 불러오는 게 늦어지고 있어요. 잠시 뒤 새로고침해 보세요.\n' + (sent || '문제 내용을 정리하는 중…'); };
