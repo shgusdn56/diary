@@ -5168,7 +5168,7 @@ const remote = new Map(), rows = new Map(), pending = new Map(), inflight = new 
     });
     };
     rows.set(dateIso, r); el.querySelectorAll('textarea').forEach(NO_ASSIST); mxHook(r, dateIso);
-    if (r.work) r.work.placeholder = J.kind === 'study' ? '시간' : wt().empty; // 새로 그린 칸에도 빈 근무 표시(예: 비)를 바로
+    if (r.work) { r.work.placeholder = J.kind === 'study' ? '시간' : wt().empty; const ws = el.querySelector('.wshow'); if (ws && !ws.dataset.ph) ws.dataset.ph = J.kind === 'study' ? '' : (wt().empty || ''); } // 새로 그린 칸에도 빈 근무 표시(예: 비)를 바로 — 휴대폰 화면은 .wshow가 보여 줘요
     fill(dateIso);
     mollyFit(r.molly);
     renderLogView(r);
