@@ -498,7 +498,7 @@ async function welcome(oldUser) {
     ${isIOS && !standalone ? `<p class="wstat bad">아이폰은 Safari 아래쪽 공유 버튼 → '홈 화면에 추가'를 한 뒤, 홈 화면의 생활일지 아이콘으로 열어야 알림을 켤 수 있어요(iOS 16.4 이상).</p>` : `<div class="aur"><button type="button" class="go" id="wWelNoti">지금 켜기</button></div>`}
     <p class="wstat" id="wWelMsg"></p></div>
   ${isIOS || standalone ? '' : `<div class="aubox"><div class="auh"><b>2. 앱으로 설치하기</b></div><p class="note" style="margin:4px 0 8px">설치하면 앱 목록과 홈 화면에 '생활일지' 아이콘이 생겨서 주소창 없이 앱처럼 바로 열려요. 측면 버튼·루틴 같은 '앱 열기'에서도 '생활일지'로 고를 수 있어요.</p>
-    <p class="note" id="wWelInstHow" style="margin:4px 0 0">${andr ? '<b>Chrome에서 설치하는 걸 추천해요:</b> Chrome으로 이 주소를 열고 오른쪽 위 ⋮ → \'홈 화면에 추가\' → \'설치\'.<br>삼성 인터넷은 주소창의 ⤓ 아이콘 → \'설치\'인데, 일부 휴대폰에서 \'안전하지 않은 앱 차단됨\'이 뜨며 설치가 막혀요. 그러면 Chrome으로 해 주세요(설치한 앱에서 알림도 한 번 다시 켜 주세요).' : '브라우저 메뉴에서 \'앱 설치\' 또는 \'홈 화면에 추가\'를 눌러 주세요.'}</p></div>`}
+    <p class="note" id="wWelInstHow" style="margin:4px 0 0">${andr ? '삼성 인터넷: 주소창 오른쪽의 ⤓ 아이콘 → \'설치\' (아이콘이 없으면 아래 메뉴 ≡ → \'현재 페이지 추가\' → \'홈 화면\')<br>\'안전하지 않은 앱 차단됨\'(Google Play 프로텍트) 창이 뜨면 \'세부정보 더보기\' → \'무시하고 설치\'를 누르면 돼요. 일지가 만든 앱이라 괜찮아요.<br>Chrome: 오른쪽 위 ⋮ → \'홈 화면에 추가\' → \'설치\'' : '브라우저 메뉴에서 \'앱 설치\' 또는 \'홈 화면에 추가\'를 눌러 주세요.'}</p></div>`}
   <div class="aubox"><div class="auh"><b>${isIOS || standalone ? '2' : '3'}. 더 알아보기</b></div><p class="note" style="margin:4px 0 0">메뉴(⋯) → '기능 설명서'에 쓰는 법이 모두 있어요. 같이 쓸 사람은 메뉴 → '공유'에서 초대해요.</p></div>
   <div class="actions"><button class="ghost" id="wWelLater">나중에</button><button class="go" id="wWelOk">시작하기</button></div></div></div>`);
   const done = (keep) => { close('wWelModal'); if (keep) setDoc(wref, { at: Date.now() }).catch(() => {}); };
