@@ -21,6 +21,7 @@ st.textContent = `#mCheck { display: none !important; }
 .wadd { display: flex; gap: 6px; margin-top: 10px; }
 .wadd input { flex: 1 1 auto; min-width: 0; }
 .wtag { font-size: 12px; opacity: .75; flex: none; }
+.mrowbtn[hidden], #menu [hidden] { display: none !important; } /* 숨긴 메뉴 단추(주인 전용 등)는 단추 모양 설정보다 앞서 숨겨요 */
 .modal .sheet:has(> .wclose) { position: relative; }
 .modal .sheet > .wclose { position: absolute; top: 12px; right: 12px; width: 34px; height: 34px; border-radius: 50%; border: 0; background: transparent; color: var(--mute, #6b7385); font-size: 18px; line-height: 34px; padding: 0; cursor: pointer; }
 .modal .sheet > .wclose:active { background: var(--line, #e3e7ee); }
