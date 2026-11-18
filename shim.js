@@ -4,7 +4,7 @@
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
 import { getAuth, GoogleAuthProvider, signInWithCredential, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
 import {
-  initializeFirestore, persistentLocalCache, persistentSingleTabManager,
+  initializeFirestore,
   doc, collection, getDoc, getDocs, setDoc, updateDoc, deleteDoc, addDoc, onSnapshot,
   query, where, orderBy, limit, deleteField, FieldPath
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
@@ -23,10 +23,9 @@ const auth = getAuth(app);
 let fs;
 // 기기 저장은 한 탭만 써요: 여러 탭이 나눠 쓰면 휴대폰이 멈춰 둔 뒤쪽 탭 때문에 앞 탭이 서버 내용을 못 받을 수 있어요.
 // 다른 탭이 이미 쓰고 있으면 이 탭은 저장 없이(메모리로) 서버에 바로 연결해요.
-// 실시간 연결은 '긴 기다림(long polling)' 방식으로: 삼성 인터넷 등에서 기본 방식(스트리밍)이 멈춰 내용이 안 들어오던 문제
-const FS_OPT = { ignoreUndefinedProperties: true, experimentalForceLongPolling: true };
-try { fs = initializeFirestore(app, { ...FS_OPT, localCache: persistentLocalCache({ tabManager: persistentSingleTabManager() }) }); }
-catch (e) { fs = initializeFirestore(app, FS_OPT); }
+// 기기에 사본을 저장하지 않고 창마다 서버에서 바로 받아요: 같은 일지를 여러 창(탭·홈 화면 앱·알림으로 연 창)에서
+// 열면 휴대폰 사본 저장소를 두고 다투다 한 창이 서버 연결을 놓쳐 '데이터를 불러오지 못했어요'가 뜨던 문제
+fs = initializeFirestore(app, { ignoreUndefinedProperties: true });
 
 const gate = document.getElementById('gate'), gMsg = document.getElementById('gateMsg');
 const showGate = (msg, withBtn) => { gate.hidden = false; gMsg.textContent = msg || ''; document.getElementById('gbtn').hidden = !withBtn; document.getElementById('gOut').hidden = !auth.currentUser; };
@@ -121,21 +120,25 @@ const qsnap = (s) => {
     docChanges: () => s.docChanges().map(c => ({ type: c.type, doc: { id: c.doc.id, exists: c.type !== 'removed', data: () => c.doc.data() } })),
     metadata: { fromCache: s.metadata.fromCache, hasPendingWrites: s.metadata.hasPendingWrites } };
 };
+// 아직 서버에 안 올라간 저장 수: 이게 남아 있는 채로 창을 닫으려 하면 브라우저가 한 번 물어봐요(사본 저장을 안 하니까)
+let PEND = 0;
+const W = async (f) => { PEND++; try { return await f(); } finally { PEND--; } };
+window.addEventListener('beforeunload', (e) => { if (PEND > 0) { e.preventDefault(); e.returnValue = ''; } });
 const docApi = (p) => {
   const ref = () => doc(fs, full(p));
   return {
     id: String(p).split('/').pop(), path: p,
     get: async () => dsnap(await getDoc(ref())),
-    set: async (x, opt) => { await setDoc(ref(), clean(x), opt && opt.merge ? { merge: true } : {}); },
+    set: (x, opt) => W(async () => { await setDoc(ref(), clean(x), opt && opt.merge ? { merge: true } : {}); }),
     // 아티팩트의 update는 맨 위 칸 단위로 통째로 바꿔요(점이 든 이름도 그대로) — 문서가 없으면 새로 만들어요
-    update: async (x) => {
+    update: (x) => W(async () => {
       const ent = Object.entries(clean(x || {}));
       if (!ent.length) return;
       const args = []; for (const [k, v] of ent) { args.push(new FieldPath(k), v && typeof v === 'object' && v.__delete__ ? deleteField() : v); }
       try { await updateDoc(ref(), ...args); }
       catch (e) { if (e && e.code === 'not-found') { const o = {}; for (const [k, v] of ent) if (!(v && typeof v === 'object' && v.__delete__)) o[k] = v; await setDoc(ref(), o, { merge: true }); } else throw e; }
-    },
-    delete: async () => { await deleteDoc(ref()); },
+    }),
+    delete: () => W(async () => { await deleteDoc(ref()); }),
     onSnapshot: (cb, err) => { DIAG.watch(p); return onSnapshot(ref(), { includeMetadataChanges: false }, (s) => { DIAG.mark(p, s.metadata.fromCache); cb(dsnap(s)); }, (e) => { DIAG.err(p, e); if (err) err(e); }); },
     collection: (c) => collApi(`${p}/${c}`)
   };
@@ -149,7 +152,7 @@ const collApi = (p, cons = []) => {
     orderBy: (f, dir) => collApi(p, [...cons, orderBy(f, dir || 'asc')]),
     limit: (n) => collApi(p, [...cons, limit(n)]),
     get: async () => qsnap(await getDocs(q())),
-    add: async (x) => { const r = await addDoc(collection(fs, full(p)), clean(x)); return { id: r.id }; },
+    add: (x) => W(async () => { const r = await addDoc(collection(fs, full(p)), clean(x)); return { id: r.id }; }),
     onSnapshot: (cb, err) => { DIAG.watch(p); return onSnapshot(q(), (s) => { DIAG.mark(p, s.metadata.fromCache); cb(qsnap(s)); }, (e) => { DIAG.err(p, e); if (err) err(e); }); }
   };
 };
