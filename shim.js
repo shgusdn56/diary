@@ -23,8 +23,10 @@ const auth = getAuth(app);
 let fs;
 // 기기 저장은 한 탭만 써요: 여러 탭이 나눠 쓰면 휴대폰이 멈춰 둔 뒤쪽 탭 때문에 앞 탭이 서버 내용을 못 받을 수 있어요.
 // 다른 탭이 이미 쓰고 있으면 이 탭은 저장 없이(메모리로) 서버에 바로 연결해요.
-try { fs = initializeFirestore(app, { ignoreUndefinedProperties: true, localCache: persistentLocalCache({ tabManager: persistentSingleTabManager() }) }); }
-catch (e) { fs = initializeFirestore(app, { ignoreUndefinedProperties: true }); }
+// 실시간 연결은 '긴 기다림(long polling)' 방식으로: 삼성 인터넷 등에서 기본 방식(스트리밍)이 멈춰 내용이 안 들어오던 문제
+const FS_OPT = { ignoreUndefinedProperties: true, experimentalForceLongPolling: true };
+try { fs = initializeFirestore(app, { ...FS_OPT, localCache: persistentLocalCache({ tabManager: persistentSingleTabManager() }) }); }
+catch (e) { fs = initializeFirestore(app, FS_OPT); }
 
 const gate = document.getElementById('gate'), gMsg = document.getElementById('gateMsg');
 const showGate = (msg, withBtn) => { gate.hidden = false; gMsg.textContent = msg || ''; document.getElementById('gbtn').hidden = !withBtn; document.getElementById('gOut').hidden = !auth.currentUser; };
@@ -79,6 +81,8 @@ async function runDiag() {
   const x = document.createElement('button'); x.textContent = '닫기'; x.style.cssText = 'float:right;margin-left:8px;border:1px solid #f0c36d;background:#fff;border-radius:8px;padding:2px 8px';
   x.onclick = () => box.remove();
   draw(); box.prepend(x); document.body.appendChild(box);
+  // 늦게라도 서버 내용이 들어오면 상자를 스스로 닫아요
+  if (!/[?&]diag/.test(location.search)) { const iv = setInterval(() => { if (!document.body.contains(box)) clearInterval(iv); else if (DIAG.ok) { clearInterval(iv); box.remove(); } }, 2000); }
   const add = (t) => { L.push(t); draw(); box.prepend(x); };
   if (DIAG.errs.length) add('받기 오류: ' + DIAG.errs.join(' / '));
   try { const c = await fetch('https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js', { cache: 'no-store' }); add('Firebase 파일 서버: ' + c.status); } catch (e) { add('Firebase 파일 서버: 연결 실패 ' + e.message); }
