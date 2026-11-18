@@ -36,7 +36,7 @@ fs = initializeFirestore(app, FORCE_LP ? { ignoreUndefinedProperties: true, expe
 // 앱 안 브라우저로 열었으면 맨 위에 'Chrome(또는 기본 브라우저)으로 열기' 안내를 띄워요
 if (INAPP) {
   const url = location.href, isAnd = /Android/i.test(UA), isKakao = /KAKAOTALK/i.test(UA);
-  const bar = document.createElement('div');
+  const bar = document.createElement('div'); bar.id = 'wInapp';
   bar.style.cssText = 'position:fixed;left:0;right:0;top:0;z-index:2147483005;background:#fff3cd;color:#5f4300;border-bottom:1px solid #f0c36d;padding:10px 12px calc(10px);font:600 13.5px/1.5 system-ui,sans-serif;display:flex;gap:8px;align-items:center;flex-wrap:wrap';
   const t = document.createElement('span'); t.style.flex = '1 1 200px';
   t.textContent = isAnd ? '앱 안의 브라우저에서는 로그인·불러오기가 안 될 수 있어요. 삼성 인터넷·Chrome 같은 브라우저로 열어 주세요.' :'앱 안의 브라우저에서는 로그인·불러오기가 안 될 수 있어요. 오른쪽 아래(또는 위) 메뉴에서 \'Safari로 열기\'(다른 브라우저로 열기)를 눌러 주세요.';
