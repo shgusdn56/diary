@@ -189,6 +189,8 @@ exports.reportMail = onDocumentCreated('reports/{rid}', async (ev) => {
   const rate = db.doc(`reportRate/${r.by}`), last = await rate.get();
   if (last.exists && Date.now() - (last.data().at || 0) < 3600e3) return;
   await rate.set({ at: Date.now() });
+  // 제작자 기기로 휴대폰 알림(제작자가 일지를 열 때 config/creator에 자기 id를 남겨 둬요)
+  try { const c = await db.doc('config/creator').get(); const cu = c.exists && c.data().uid; if (cu) await pushTo(cu, { title: `[오류 보고] ${r.kind === 'error' ? '화면 오류' : '불러오기 막힘'}`, body: `${r.email || r.by} · ${(r.lines || [])[0] || ''}`.slice(0, 200), url: SITE + '?reports=1', tag: 'report' }); } catch (e) { logger.error('reportPush', e); }
   try {
     const { from, t } = await mailer();
     const jn = r.sid ? await journalName(r.sid) : '생활일지';
