@@ -487,8 +487,9 @@ async function welcome(oldUser) {
     <p class="note" style="margin:4px 0 8px">함께 쓰는 사람이 일지를 고치면 알려 주고, 매일 아침 7:20에 오늘 일정을 알려 줘요.</p>
     ${isIOS && !standalone ? `<p class="wstat bad">아이폰은 Safari 아래쪽 공유 버튼 → '홈 화면에 추가'를 한 뒤, 홈 화면의 생활일지 아이콘으로 열어야 알림을 켤 수 있어요(iOS 16.4 이상).</p>` : `<div class="aur"><button type="button" class="go" id="wWelNoti">지금 켜기</button></div>`}
     <p class="wstat" id="wWelMsg"></p></div>
-  ${isIOS && !standalone ? '' : `<div class="aubox"><div class="auh"><b>2. 홈 화면에 추가</b></div><p class="note" style="margin:4px 0 0">${andr ? '브라우저 메뉴(⋮ 또는 ≡) → \'홈 화면에 추가\'(또는 \'현재 페이지 추가 → 홈 화면\')를 누르면 앱처럼 바로 열 수 있어요.' : '브라우저 메뉴에서 \'홈 화면에 추가\'를 누르면 앱처럼 바로 열 수 있어요.'}</p></div>`}
-  <div class="aubox"><div class="auh"><b>${isIOS && !standalone ? '2' : '3'}. 더 알아보기</b></div><p class="note" style="margin:4px 0 0">메뉴(⋯) → '기능 설명서'에 쓰는 법이 모두 있어요. 같이 쓸 사람은 메뉴 → '공유'에서 초대해요.</p></div>
+  ${isIOS || standalone ? '' : `<div class="aubox"><div class="auh"><b>2. 앱으로 설치하기</b></div><p class="note" style="margin:4px 0 8px">설치하면 앱 목록과 홈 화면에 '생활일지' 아이콘이 생겨서 주소창 없이 앱처럼 바로 열려요. 측면 버튼·루틴 같은 '앱 열기'에서도 '생활일지'로 고를 수 있어요.</p>
+    <p class="note" id="wWelInstHow" style="margin:4px 0 0">${andr ? '삼성 인터넷: 주소창 오른쪽의 ⤓ 아이콘 → \'설치\' (아이콘이 없으면 아래 메뉴 ≡ → \'현재 페이지 추가\' → \'홈 화면\')<br>Chrome: 오른쪽 위 ⋮ → \'앱 설치\' 또는 \'홈 화면에 추가\'' : '브라우저 메뉴에서 \'앱 설치\' 또는 \'홈 화면에 추가\'를 눌러 주세요.'}</p></div>`}
+  <div class="aubox"><div class="auh"><b>${isIOS || standalone ? '2' : '3'}. 더 알아보기</b></div><p class="note" style="margin:4px 0 0">메뉴(⋯) → '기능 설명서'에 쓰는 법이 모두 있어요. 같이 쓸 사람은 메뉴 → '공유'에서 초대해요.</p></div>
   <div class="actions"><button class="ghost" id="wWelLater">나중에</button><button class="go" id="wWelOk">시작하기</button></div></div></div>`);
   const done = (keep) => { close('wWelModal'); if (keep) setDoc(wref, { at: Date.now() }).catch(() => {}); };
   $('wWelLater').addEventListener('click', () => done(false));
