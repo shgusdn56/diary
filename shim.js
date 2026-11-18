@@ -35,11 +35,12 @@ if (INAPP) {
   const bar = document.createElement('div');
   bar.style.cssText = 'position:fixed;left:0;right:0;top:0;z-index:2147483005;background:#fff3cd;color:#5f4300;border-bottom:1px solid #f0c36d;padding:10px 12px calc(10px);font:600 13.5px/1.5 system-ui,sans-serif;display:flex;gap:8px;align-items:center;flex-wrap:wrap';
   const t = document.createElement('span'); t.style.flex = '1 1 200px';
-  t.textContent = isAnd ? '앱 안의 브라우저에서는 로그인·불러오기가 안 될 수 있어요. Chrome으로 열어 주세요.' : '앱 안의 브라우저에서는 로그인·불러오기가 안 될 수 있어요. 오른쪽 아래(또는 위) 메뉴에서 \'Safari로 열기\'(다른 브라우저로 열기)를 눌러 주세요.';
+  t.textContent = isAnd ? '앱 안의 브라우저에서는 로그인·불러오기가 안 될 수 있어요. 삼성 인터넷·Chrome 같은 브라우저로 열어 주세요.' :'앱 안의 브라우저에서는 로그인·불러오기가 안 될 수 있어요. 오른쪽 아래(또는 위) 메뉴에서 \'Safari로 열기\'(다른 브라우저로 열기)를 눌러 주세요.';
   bar.appendChild(t);
   if (isAnd || isKakao) {
-    const b = document.createElement('a'); b.textContent = isAnd ? 'Chrome으로 열기' : '브라우저로 열기';
-    b.href = isKakao ? 'kakaotalk://web/openExternal?url=' + encodeURIComponent(url) : `intent://${url.replace(/^https?:\/\//, '')}#Intent;scheme=https;package=com.android.chrome;S.browser_fallback_url=${encodeURIComponent(url)};end`;
+    const b = document.createElement('a'); b.textContent = '브라우저로 열기';
+    // 안드로이드: 휴대폰의 기본 브라우저(삼성 인터넷·Chrome 등)로 열어요 — 특정 앱을 고르지 않아요
+    b.href = isKakao ? 'kakaotalk://web/openExternal?url=' + encodeURIComponent(url) : `intent://${url.replace(/^https?:\/\//, '')}#Intent;scheme=https;action=android.intent.action.VIEW;category=android.intent.category.BROWSABLE;end`;
     b.style.cssText = 'flex:none;background:#1f5bc4;color:#fff;border-radius:16px;padding:6px 14px;text-decoration:none;font-weight:700';
     bar.appendChild(b);
   }
