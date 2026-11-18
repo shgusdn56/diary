@@ -101,7 +101,9 @@ const DIAG = { ok: false, errs: [], st: {},
   watch(p) { if (!(p in this.st)) this.st[p] = '대기'; },
   mark(p, fromCache) { if (!fromCache) { this.ok = true; this.st[p] = '서버'; } else if (this.st[p] !== '서버') this.st[p] = '저장본만'; },
   err(p, e) { console.warn('[db]', p, e && e.code); this.st[p] = '오류 ' + ((e && (e.code || e.message)) || e); if (this.errs.length < 6) this.errs.push(`${p}: ${(e && (e.code || e.message)) || e}`); } };
-const stuck = () => { const b = document.getElementById('banner'); return !DIAG.ok || !!(b && b.classList.contains('on') && /불러오지/.test(b.textContent)); };
+// 막힘: 서버에서 아무것도 못 받았거나, 날짜 기록 안내 띠가 남아 있거나, 자물쇠 화면이 '불러오는 중'에서 안 넘어갈 때
+const lockStuck = () => { const lk = document.getElementById('lock'), lt = document.getElementById('lkText'); return !!(lk && lt && getComputedStyle(lk).display !== 'none' && /불러오는 중/.test(lt.textContent || '')); };
+const stuck = () => { const b = document.getElementById('banner'); return !DIAG.ok || lockStuck() || !!(b && b.classList.contains('on') && /불러오지/.test(b.textContent)); };
 async function runDiag() {
   if ((!stuck() && !/[?&]diag/.test(location.search)) || document.getElementById('wDiag')) return;
   const box = document.createElement('div'); box.id = 'wDiag';
@@ -132,11 +134,12 @@ async function runDiag() {
     const t = await U.getIdToken(), r = await fetch(`https://firestore.googleapis.com/v1/projects/life-diary-1c3b8/databases/(default)/documents/spaces/${SID}/days?pageSize=300&mask.fieldPaths=updatedAt`, { headers: { Authorization: 'Bearer ' + t } });
     const j = r.ok ? await r.json() : null; add(`날짜 기록 직접 읽기: ${r.status}` + (j ? ` · ${(j.documents || []).length}개` : ''));
   } catch (e) { add('날짜 기록 직접 읽기: 실패 ' + e.message); }
-  L.push('연결 방식: ' + (FORCE_LP ? '긴 기다림' : '기본') + (LP_SAVED ? '(이 기기에 기억됨)' : ''));
+  L.push('연결 방식: ' + (FORCE_LP ? '긴 기다림' : '기본') + (LP_SAVED ? '(이 기기에 기억됨)' : '') + ' · 자물쇠 화면에서 멈춤: ' + (lockStuck() ? '예' : '아니오'));
+  L.push('받기 상태 전체: ' + Object.entries(DIAG.st).map(([p, v]) => `${p.replace(/^data\/users\/[^/]+/, '나')}=${v}`).join(', ').slice(0, 580));
   // 진단 내용을 서버에 남겨요 → 제작자에게 메일(같은 사람은 1시간에 한 번)
   const sentOk = await report('stuck', L);
   // 스스로 고치기: 기본 방식에서 막혔으면 이 기기는 '긴 기다림' 방식으로 바꿔 기억하고 한 번 다시 열어요
-  if (!FORCE_LP && !DIAG.ok && !/[?&]diag/.test(location.search)) {
+  if (!FORCE_LP && (!DIAG.ok || lockStuck()) && !/[?&]diag/.test(location.search)) {
     try { localStorage.setItem('diary.lp', '1'); } catch (e) {}
     sent = '연결 방식을 바꿔서 다시 열어요…'; draw(); box.prepend(x);
     setTimeout(() => location.reload(), 2500); return;
