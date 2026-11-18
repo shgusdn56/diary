@@ -9,6 +9,14 @@ ROOT=$(git rev-parse --show-toplevel); cd "$ROOT"
 OUT=$(mktemp -d); WT=$(mktemp -d)
 python3 tools/build.py src/app.html "$OUT/index.html" >/dev/null
 cp web.js sw.js manifest.webmanifest icon-192.png icon-512.png diag.html "$OUT/"
+# 시험판에서 '앱 설치'를 눌러도 원래 주소(../)가 설치되게: 시험판 앱이 따로 생기면 사용자가 모르고 시험판을 쓰게 돼요
+python3 - "$OUT/manifest.webmanifest" <<'PY'
+import json, sys
+p = sys.argv[1]; m = json.load(open(p, encoding='utf-8'))
+m['start_url'] = '../'; m['scope'] = '../'; m['id'] = '../'
+m['icons'] = [dict(i, src='../' + i['src']) for i in m['icons']]
+json.dump(m, open(p, 'w', encoding='utf-8'), ensure_ascii=False, indent=2)
+PY
 cp src/app.html "$OUT/_app.html"   # 올리기 작업이 이걸로 원래 주소의 index.html·src/app.html을 만들어요
 python3 - "$OUT/index.html" <<'PY'
 import sys; p = sys.argv[1]; s = open(p, encoding='utf-8').read()
