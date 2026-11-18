@@ -4,7 +4,7 @@
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
 import { getAuth, GoogleAuthProvider, signInWithCredential, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
 import {
-  initializeFirestore, persistentLocalCache, persistentMultipleTabManager,
+  initializeFirestore, persistentLocalCache, persistentSingleTabManager,
   doc, collection, getDoc, getDocs, setDoc, updateDoc, deleteDoc, addDoc, onSnapshot,
   query, where, orderBy, limit, deleteField, FieldPath
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
@@ -21,7 +21,9 @@ const app = initializeApp({
 });
 const auth = getAuth(app);
 let fs;
-try { fs = initializeFirestore(app, { ignoreUndefinedProperties: true, localCache: persistentLocalCache({ tabManager: persistentMultipleTabManager() }) }); }
+// 기기 저장은 한 탭만 써요: 여러 탭이 나눠 쓰면 휴대폰이 멈춰 둔 뒤쪽 탭 때문에 앞 탭이 서버 내용을 못 받을 수 있어요.
+// 다른 탭이 이미 쓰고 있으면 이 탭은 저장 없이(메모리로) 서버에 바로 연결해요.
+try { fs = initializeFirestore(app, { ignoreUndefinedProperties: true, localCache: persistentLocalCache({ tabManager: persistentSingleTabManager() }) }); }
 catch (e) { fs = initializeFirestore(app, { ignoreUndefinedProperties: true }); }
 
 const gate = document.getElementById('gate'), gMsg = document.getElementById('gateMsg');
