@@ -1610,7 +1610,7 @@
   }, 20000);
 })();
 </script>
-<link rel="modulepreload" href="../shim.js?v=1795020677">
+<link rel="modulepreload" href="../shim.js?v=1795020826">
 <link rel="modulepreload" href="https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js">
 <link rel="modulepreload" href="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js">
 <link rel="modulepreload" href="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js">
@@ -5470,18 +5470,6 @@ const remote = new Map(), rows = new Map(), pending = new Map(), inflight = new 
     const up = () => { window.removeEventListener('pointerup', up, true); setTimeout(() => { if (t._wordEdit && !(e.detail >= 2)) { wordEditEnd(t); try { liveFmt(t); drawCaret(t, true); fmtBtns(t); selBar(t); } catch (er) {} } }, 0); };
     window.addEventListener('pointerup', up, true);
   }, true);
-  // 폰: 일지 칸을 쓰다가 화면을 밀어 커서가 화면 밖으로 나가면, 스크롤이 멈춘 뒤 그 칸을 닫아요.
-  // 열어 둔 채로 두면 바깥을 누를 때 휴대폰이 키보드를 다시 올리며 커서 자리로 화면을 확 끌어올렸어요(위치가 튀는 문제)
-  let logAwayT = 0;
-  scroller.addEventListener('scroll', () => {
-    if (!COARSE()) return; const t = document.activeElement; if (!t || !t.classList || !t.classList.contains('log')) return;
-    clearTimeout(logAwayT); logAwayT = setTimeout(() => {
-      if (document.activeElement !== t || !t.offsetParent) return;
-      const p = caretPoint(t, t.selectionEnd), y = t.offsetParent.getBoundingClientRect().top + p.y;
-      const vv = window.visualViewport, top = scroller.getBoundingClientRect().top + (window.hdOff ? hdOff() : 0), bot = vv ? vv.offsetTop + vv.height : innerHeight;
-      if (y < top - 4 || y - 24 > bot) { t._lpAt = 0; t.blur(); }
-    }, 200);
-  }, { passive: true });
   let noteOpen = null, nhlTapAt = 0; // 쪽지 표시를 눌렀을 땐 그 손가락이 아래 일지 칸까지 열지 않게
   // 폰: 쪽지를 연 채 바깥을 조금 스크롤하는 건 그대로, 많이 스크롤하면(화면 반쯤 넘게, 또는 쪽지가 화면 밖으로 나가면) 닫혀요
   let noteScroll0 = null, noteCloseT = 0;
@@ -8596,7 +8584,7 @@ const remote = new Map(), rows = new Map(), pending = new Map(), inflight = new 
 </script>
 <script src="https://accounts.google.com/gsi/client" async></script>
 <script>window.__WEBJS = new URL("web.js", location.href).href;</script>
-<script type="module" src="../shim.js?v=1795020677"></script>
+<script type="module" src="../shim.js?v=1795020826"></script>
 <script>if ('serviceWorker' in navigator) { navigator.serviceWorker.register('sw.js').catch(() => {}); navigator.serviceWorker.addEventListener('message', (e) => { if (e.data !== 'diary-update' || document.getElementById('wNew')) return; const b = document.createElement('button'); b.id = 'wNew'; b.type = 'button'; b.textContent = '새 버전이 있어요 · 눌러서 새로고침'; b.style.cssText = 'position:fixed;left:50%;transform:translateX(-50%);bottom:calc(16px + env(safe-area-inset-bottom));z-index:2147483001;border:0;border-radius:20px;padding:10px 18px;background:#1f5bc4;color:#fff;font:600 14px system-ui,sans-serif;box-shadow:0 4px 14px rgba(0,0,0,.2)'; b.onclick = () => location.reload(); document.body.appendChild(b); }); }</script>
 <div id="testBadge" style="position:fixed;left:8px;bottom:calc(8px + env(safe-area-inset-bottom));z-index:2147483003;background:#e8710a;color:#fff;font:700 12px/1.4 system-ui,sans-serif;padding:4px 10px;border-radius:10px;pointer-events:none;max-width:70vw">시험판 · 비교하는 중…</div>
 <script>(async () => {
