@@ -470,7 +470,7 @@ if (CREATOR) {
   const fmt = (t) => new Date(t).toLocaleString('ko-KR', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' });
   const drawRepN = () => { const n = reps.filter((r) => (r.at || 0) > seenAt).length; if ($('wRepN')) $('wRepN').textContent = n ? String(n) : ''; };
   const drawList = () => {
-    $('wRepList').innerHTML = reps.length ? reps.map((r) => `<div class="wrep${(r.at || 0) > seenAt ? ' new' : ''}"><div class="wreph"><em class="wrepk${r.kind === 'error' ? ' e' : ''}">${r.kind === 'error' ? '화면 오류' : '불러오기 막힘'}</em><b>${esc(r.email || r.by || '')}</b><span>${esc(fmt(r.at || 0))}</span></div><pre>${esc((r.lines || []).join('\n'))}\n${esc(r.ua || '')}</pre></div>`).join('') : '<p class="note">아직 보고가 없어요.</p>';
+    $('wRepList').innerHTML = reps.length ? reps.map((r) => `<div class="wrep${(r.at || 0) > seenAt ? ' new' : ''}"><div class="wreph"><em class="wrepk${r.kind === 'error' ? ' e' : ''}">${r.kind === 'error' ? '화면 오류' : r.kind === 'prelogin' ? '로그인 전 막힘' : '불러오기 막힘'}</em><b>${esc(r.email || r.by || '')}</b><span>${esc(fmt(r.at || 0))}</span></div><pre>${esc((r.lines || []).join('\n'))}\n${esc(r.ua || '')}</pre></div>`).join('') : '<p class="note">아직 보고가 없어요.</p>';
   };
   // 최근 30건 (보고는 제작자만 읽을 수 있어요)
   onSnapshot(query(collection(fs, 'reports'), orderBy('at', 'desc'), limit(30)), (s) => { reps = s.docs.map((d) => d.data()); drawRepN(); if ($('wRepModal').classList.contains('on')) drawList(); }, () => {});
