@@ -464,10 +464,49 @@ swapBtn('mUpd', () => openUpd(0));
   const r = doc(fs, `private/${U.uid}/web/${IS_TEST ? 'seenTest' : 'seen'}`);
   try {
     const s = await getDoc(r), seen = s.exists() ? +s.data().b || 0 : 0;
+    welcome(s.exists());
     if (s.exists() && BUILD_NOW > seen && REL.some((x) => (+x.b || 0) > seen)) setTimeout(() => { if (!document.querySelector('.modal.on')) openUpd(seen); }, 1500);
     if (!s.exists() || BUILD_NOW > seen) await setDoc(r, { b: BUILD_NOW, at: Date.now() });
   } catch (e) {}
 })();
+
+// ── 처음 들어온 분 환영 안내(한 번만): 알림 켜기·홈 화면에 추가·기능 설명서. 원래 쓰던 분은 띄우지 않고 기억만 해요
+async function welcome(oldUser) {
+  const wref = doc(fs, `private/${U.uid}/web/welcome`), force = /[?&]welcome/.test(location.search);
+  try {
+    if (!force) {
+      if ((await getDoc(wref)).exists()) return;
+      if (oldUser) { setDoc(wref, { at: Date.now(), auto: true }).catch(() => {}); return; }
+    }
+  } catch (e) { return; }
+  const andr = /Android/.test(navigator.userAgent);
+  document.body.insertAdjacentHTML('beforeend', `
+<div class="modal" id="wWelModal" role="dialog" aria-modal="true"><div class="sheet"><button class="wclose" type="button" aria-label="닫기">✕</button><h2>생활일지에 오신 걸 환영해요</h2>
+  <p class="note">처음 한 번만 보여요. 나중에 메뉴에서 언제든 바꿀 수 있어요.</p>
+  <div class="aubox"><div class="auh"><b>1. 휴대폰 알림 켜기</b></div>
+    <p class="note" style="margin:4px 0 8px">함께 쓰는 사람이 일지를 고치면 알려 주고, 매일 아침 7:20에 오늘 일정을 알려 줘요.</p>
+    ${isIOS && !standalone ? `<p class="wstat bad">아이폰은 Safari 아래쪽 공유 버튼 → '홈 화면에 추가'를 한 뒤, 홈 화면의 생활일지 아이콘으로 열어야 알림을 켤 수 있어요(iOS 16.4 이상).</p>` : `<div class="aur"><button type="button" class="go" id="wWelNoti">지금 켜기</button></div>`}
+    <p class="wstat" id="wWelMsg"></p></div>
+  ${isIOS && !standalone ? '' : `<div class="aubox"><div class="auh"><b>2. 홈 화면에 추가</b></div><p class="note" style="margin:4px 0 0">${andr ? '브라우저 메뉴(⋮ 또는 ≡) → \'홈 화면에 추가\'(또는 \'현재 페이지 추가 → 홈 화면\')를 누르면 앱처럼 바로 열 수 있어요.' : '브라우저 메뉴에서 \'홈 화면에 추가\'를 누르면 앱처럼 바로 열 수 있어요.'}</p></div>`}
+  <div class="aubox"><div class="auh"><b>${isIOS && !standalone ? '2' : '3'}. 더 알아보기</b></div><p class="note" style="margin:4px 0 0">메뉴(⋯) → '기능 설명서'에 쓰는 법이 모두 있어요. 같이 쓸 사람은 메뉴 → '공유'에서 초대해요.</p></div>
+  <div class="actions"><button class="ghost" id="wWelLater">나중에</button><button class="go" id="wWelOk">시작하기</button></div></div></div>`);
+  const done = (keep) => { close('wWelModal'); if (keep) setDoc(wref, { at: Date.now() }).catch(() => {}); };
+  $('wWelLater').addEventListener('click', () => done(false));
+  $('wWelModal').querySelector('.wclose').addEventListener('click', () => done(false));
+  $('wWelOk').addEventListener('click', () => done(true));
+  if ($('wWelNoti')) $('wWelNoti').addEventListener('click', async () => {
+    const m = $('wWelMsg'), b = $('wWelNoti'); b.disabled = true; m.className = 'wstat'; m.textContent = '알림을 켜는 중… (허용을 물으면 \'허용\'을 눌러 주세요)';
+    try {
+      await registerDevice(true, true); drawDev();
+      await setDoc(nref(), { on: true, mOn: true, mAt: '07:20', mAtSet: '07:20', name: myName(), updatedAt: Date.now() }, { merge: true });
+      m.className = 'wstat ok'; m.textContent = '켰어요. 이 휴대폰으로 알림이 와요. 시각은 메뉴 → 휴대폰 알림에서 바꿀 수 있어요.'; b.textContent = '켜짐';
+    } catch (e) { b.disabled = false; m.className = 'wstat bad'; m.textContent = devErr(e); }
+  });
+  // 비밀번호 화면이 끝나고 다른 창이 없을 때 띄워요
+  const t0 = Date.now();
+  const tick = () => { if (Date.now() - t0 > 10 * 60e3) return; if (document.body.classList.contains('locked') || document.querySelector('.modal.on')) { setTimeout(tick, 1000); return; } open('wWelModal'); };
+  setTimeout(tick, 1500);
+}
 
 // ── 시험판 → 원래 주소 올리기 (제작자, 시험판에서만): 서버가 GitHub 작업을 시작시켜요
 if (IS_TEST && CREATOR) window.__testRelease = async (badge) => {
