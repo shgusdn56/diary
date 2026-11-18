@@ -36,9 +36,10 @@ service cloud.firestore {
     match /jobs/{j} {
       allow read: if signed() && resource.data.by == request.auth.uid;
       allow create: if signed() && request.resource.data.by == request.auth.uid
-        && request.resource.data.keys().hasOnly(['kind', 'sid', 'by', 'at', 'test'])
+        && request.resource.data.keys().hasOnly(['kind', 'sid', 'by', 'at', 'test', 'to'])
         && ((request.resource.data.kind in ['test-edit', 'test-morning'] && role(request.resource.data.sid) != '')
           || (request.resource.data.kind == 'pdf' && request.resource.data.test == true && space(request.resource.data.sid).owner == request.auth.uid)
+          || (request.resource.data.kind == 'invite' && space(request.resource.data.sid).owner == request.auth.uid && request.resource.data.to in space(request.resource.data.sid).members)
           || (request.resource.data.kind in ['holidays', 'release'] && isCreator()));
     }
     // 메일 보내는 계정(앱 비밀번호): 제작자만 쓰고, 아무도 읽지 못해요(서버만 읽어요)
