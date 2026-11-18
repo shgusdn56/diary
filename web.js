@@ -21,6 +21,7 @@ st.textContent = `#mCheck { display: none !important; }
 .wadd { display: flex; gap: 6px; margin-top: 10px; }
 .wadd input { flex: 1 1 auto; min-width: 0; }
 .wtag { font-size: 12px; opacity: .75; flex: none; }
+.mrowbtn[hidden], #menu [hidden] { display: none !important; } /* 숨긴 메뉴 단추(주인 전용 등)는 단추 모양 설정보다 앞서 숨겨요 */
 .modal .sheet:has(> .wclose) { position: relative; }
 .modal .sheet > .wclose { position: absolute; top: 12px; right: 12px; width: 34px; height: 34px; border-radius: 50%; border: 0; background: transparent; color: var(--mute, #6b7385); font-size: 18px; line-height: 34px; padding: 0; cursor: pointer; }
 .modal .sheet > .wclose:active { background: var(--line, #e3e7ee); }
@@ -376,6 +377,7 @@ st3.textContent = `#mUpd.crrow::after, #mUpd.ownrow::after { display: none !impo
 .wrelh { font-size: 13px; color: var(--mute, #6b7385); display: flex; align-items: center; gap: 6px; flex-wrap: wrap; } .wrelh b { color: var(--ink, #1f2329); font-size: 14px; }
 .wrel ul { margin: 6px 0 0; padding-left: 18px; } .wrel li { font-size: 13.5px; line-height: 1.55; margin: 2px 0; }
 .wnew { font-style: normal; font-size: 11px; font-weight: 700; color: #fff; background: var(--blue, #1f5bc4); border-radius: 8px; padding: 0 6px; }
+.wrel li.wnl { font-weight: 600; } .wrel li.wnl::marker { color: var(--blue, #1f5bc4); }
 .wrel.on { background: var(--blue-l, #e8f0fe); border-radius: 10px; padding: 10px; border-bottom: 0; margin-bottom: 6px; }
 .wrel > summary { list-style: none; cursor: pointer; -webkit-tap-highlight-color: transparent; } .wrel > summary::-webkit-details-marker { display: none; }
 .wcnt { margin-left: auto; font-size: 12px; } .wchev { width: 8px; height: 8px; border-right: 2px solid currentColor; border-bottom: 2px solid currentColor; transform: rotate(45deg); margin: 0 4px 3px 6px; transition: transform .15s; }
@@ -399,12 +401,21 @@ $('wUpdAll').addEventListener('click', () => $('wUpdList').querySelectorAll('det
 $('wUpdNone').addEventListener('click', () => $('wUpdList').querySelectorAll('details').forEach((d) => { d.open = false; }));
 const relDate = (r) => { const [y, m, d] = String(r.d || '').split('-').map(Number); return m ? `${y}년 ${m}월 ${d}일${r.t ? ' ' + r.t : ''}` : ''; };
 function drawUpd(sinceB) {
-  const list = REL.slice().reverse();
-  $('wUpdNote').textContent = `지금 버전 v${BUILD_NOW}` + (sinceB ? ' · 지난번에 보신 뒤로 바뀐 점이에요(파란 칸).' : ' · 최근 것부터 보여 줘요.');
-  $('wUpdList').innerHTML = list.map((r, i) => {
-    const isNew = sinceB && (+r.b || 0) > sinceB;
-    const openIt = sinceB ? isNew : i === 0; // 새로 바뀐 것(없으면 맨 위 하나)만 펼쳐 두고 나머지는 접어요
-    return `<details class="wrel${isNew ? ' on' : ''}"${openIt ? ' open' : ''}><summary class="wrelh"><b>${r.b ? 'v' + esc(r.b) : '초기 판'}</b><span>${esc(relDate(r))}</span>${isNew ? '<em class="wnew">새로</em>' : ''}<span class="wcnt">${(r.notes || []).length}가지</span><i class="wchev" aria-hidden="true"></i></summary><ul>${(r.notes || []).map((n) => `<li>${esc(String(n).replace(/\*\*/g, ''))}</li>`).join('')}</ul></details>`;
+  // 같은 날 고친 것은 한 칸으로 모아요: 그날의 버전 범위(v337~v343)와 바뀐 점(최근 것부터)
+  const days = [];
+  for (const r of REL.slice().reverse()) {
+    const d = r.d || '', last = days[days.length - 1];
+    if (last && last.d === d) last.items.push(r); else days.push({ d, items: [r] });
+  }
+  $('wUpdNote').textContent = `지금 버전 v${BUILD_NOW}` + (sinceB ? ' · 지난번에 보신 뒤로 바뀐 점이에요(파란 칸).' : ' · 날짜별로 모아 최근 것부터 보여 줘요.');
+  $('wUpdList').innerHTML = days.map((g, i) => {
+    const bs = g.items.map((r) => +r.b || 0).filter(Boolean), hi = Math.max(0, ...bs), lo = bs.length ? Math.min(...bs) : 0;
+    const ver = hi ? (lo && lo !== hi ? `v${lo}~v${hi}` : `v${hi}`) : '초기 판';
+    const isNew = !!sinceB && hi > sinceB;
+    const openIt = sinceB ? isNew : i === 0; // 새로 바뀐 날(없으면 맨 위 하루)만 펼쳐 두고 나머지는 접어요
+    const [y, m, dd] = g.d.split('-').map(Number);
+    const notes = g.items.flatMap((r) => (r.notes || []).map((n) => ({ n, nw: !!sinceB && (+r.b || 0) > sinceB })));
+    return `<details class="wrel${isNew ? ' on' : ''}"${openIt ? ' open' : ''}><summary class="wrelh"><b>${m ? `${m}월 ${dd}일` : '초기'}</b><span>${esc(ver)}</span>${isNew ? '<em class="wnew">새로</em>' : ''}<span class="wcnt">${notes.length}가지</span><i class="wchev" aria-hidden="true"></i></summary><ul>${notes.map((x) => `<li${x.nw ? ' class="wnl"' : ''}>${esc(String(x.n).replace(/\*\*/g, ''))}</li>`).join('')}</ul></details>`;
   }).join('') || '<p class="note">아직 기록이 없어요.</p>';
 }
 async function drawGh() {
