@@ -21,11 +21,32 @@ const app = initializeApp({
 });
 const auth = getAuth(app);
 let fs;
-// 기기 저장은 한 탭만 써요: 여러 탭이 나눠 쓰면 휴대폰이 멈춰 둔 뒤쪽 탭 때문에 앞 탭이 서버 내용을 못 받을 수 있어요.
-// 다른 탭이 이미 쓰고 있으면 이 탭은 저장 없이(메모리로) 서버에 바로 연결해요.
+// 네이버·카카오톡 등 앱 안의 브라우저: Google 로그인·실시간 연결이 막히는 경우가 많아요
+const UA = navigator.userAgent;
+const INAPP = /NAVER\(inapp|KAKAOTALK|Instagram|FBAN|FBAV|Line\/|DaumApps|Whale\/.*inapp|; wv\)/i.test(UA);
 // 기기에 사본을 저장하지 않고 창마다 서버에서 바로 받아요: 같은 일지를 여러 창(탭·홈 화면 앱·알림으로 연 창)에서
 // 열면 휴대폰 사본 저장소를 두고 다투다 한 창이 서버 연결을 놓쳐 '데이터를 불러오지 못했어요'가 뜨던 문제
-fs = initializeFirestore(app, { ignoreUndefinedProperties: true });
+// 앱 안 브라우저는 실시간 연결을 '긴 기다림' 방식으로(그런 브라우저에서 기본 방식이 멈추는 경우가 있어서)
+fs = initializeFirestore(app, INAPP ? { ignoreUndefinedProperties: true, experimentalForceLongPolling: true } : { ignoreUndefinedProperties: true });
+
+// 앱 안 브라우저로 열었으면 맨 위에 'Chrome(또는 기본 브라우저)으로 열기' 안내를 띄워요
+if (INAPP) {
+  const url = location.href, isAnd = /Android/i.test(UA), isKakao = /KAKAOTALK/i.test(UA);
+  const bar = document.createElement('div');
+  bar.style.cssText = 'position:fixed;left:0;right:0;top:0;z-index:2147483005;background:#fff3cd;color:#5f4300;border-bottom:1px solid #f0c36d;padding:10px 12px calc(10px);font:600 13.5px/1.5 system-ui,sans-serif;display:flex;gap:8px;align-items:center;flex-wrap:wrap';
+  const t = document.createElement('span'); t.style.flex = '1 1 200px';
+  t.textContent = isAnd ? '앱 안의 브라우저에서는 로그인·불러오기가 안 될 수 있어요. Chrome으로 열어 주세요.' : '앱 안의 브라우저에서는 로그인·불러오기가 안 될 수 있어요. 오른쪽 아래(또는 위) 메뉴에서 \'Safari로 열기\'(다른 브라우저로 열기)를 눌러 주세요.';
+  bar.appendChild(t);
+  if (isAnd || isKakao) {
+    const b = document.createElement('a'); b.textContent = isAnd ? 'Chrome으로 열기' : '브라우저로 열기';
+    b.href = isKakao ? 'kakaotalk://web/openExternal?url=' + encodeURIComponent(url) : `intent://${url.replace(/^https?:\/\//, '')}#Intent;scheme=https;package=com.android.chrome;S.browser_fallback_url=${encodeURIComponent(url)};end`;
+    b.style.cssText = 'flex:none;background:#1f5bc4;color:#fff;border-radius:16px;padding:6px 14px;text-decoration:none;font-weight:700';
+    bar.appendChild(b);
+  }
+  const x = document.createElement('button'); x.textContent = '✕'; x.setAttribute('aria-label', '닫기'); x.style.cssText = 'flex:none;border:0;background:none;color:#5f4300;font-size:16px;padding:2px 6px';
+  x.onclick = () => bar.remove(); bar.appendChild(x);
+  document.body.appendChild(bar);
+}
 
 const gate = document.getElementById('gate'), gMsg = document.getElementById('gateMsg');
 const showGate = (msg, withBtn) => { gate.hidden = false; gMsg.textContent = msg || ''; document.getElementById('gbtn').hidden = !withBtn; document.getElementById('gOut').hidden = !auth.currentUser; };
