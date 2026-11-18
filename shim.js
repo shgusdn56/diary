@@ -71,9 +71,14 @@ async function pickSpace(u) {
 }
 
 // ── 연결 진단: 일지를 연 뒤 12초가 지나도 서버에서 아무것도 못 받으면, 어디서 막혔는지 화면 아래에 보여 줘요
-const DIAG = { ok: false, errs: [], err(p, e) { console.warn('[db]', p, e && e.code); if (this.errs.length < 6) this.errs.push(`${p}: ${(e && (e.code || e.message)) || e}`); } };
+// 받기마다 상태를 적어 둬요: 대기 → 저장본 → 서버 / 오류
+const DIAG = { ok: false, errs: [], st: {},
+  watch(p) { if (!(p in this.st)) this.st[p] = '대기'; },
+  mark(p, fromCache) { if (!fromCache) { this.ok = true; this.st[p] = '서버'; } else if (this.st[p] !== '서버') this.st[p] = '저장본만'; },
+  err(p, e) { console.warn('[db]', p, e && e.code); this.st[p] = '오류 ' + ((e && (e.code || e.message)) || e); if (this.errs.length < 6) this.errs.push(`${p}: ${(e && (e.code || e.message)) || e}`); } };
+const stuck = () => { const b = document.getElementById('banner'); return !DIAG.ok || !!(b && b.classList.contains('on') && /불러오지/.test(b.textContent)); };
 async function runDiag() {
-  if ((DIAG.ok && !/[?&]diag/.test(location.search)) || document.getElementById('wDiag')) return;
+  if ((!stuck() && !/[?&]diag/.test(location.search)) || document.getElementById('wDiag')) return;
   const box = document.createElement('div'); box.id = 'wDiag';
   box.style.cssText = 'position:fixed;left:8px;right:8px;bottom:calc(8px + env(safe-area-inset-bottom));z-index:2147483002;background:#fff8e1;color:#5f4300;border:1px solid #f0c36d;border-radius:12px;padding:10px 12px;font:12.5px/1.5 system-ui,sans-serif;white-space:pre-wrap;word-break:break-all;max-height:45vh;overflow:auto';
   const L = ['연결 진단 (이 화면을 캡처해 Claude에게 보내 주세요)', `시각 ${new Date().toLocaleString('ko-KR')} · 온라인 ${navigator.onLine} · ${navigator.userAgent.replace(/^.*?\) /, '').slice(0, 60)}`];
@@ -82,7 +87,7 @@ async function runDiag() {
   x.onclick = () => box.remove();
   draw(); box.prepend(x); document.body.appendChild(box);
   // 늦게라도 서버 내용이 들어오면 상자를 스스로 닫아요
-  if (!/[?&]diag/.test(location.search)) { const iv = setInterval(() => { if (!document.body.contains(box)) clearInterval(iv); else if (DIAG.ok) { clearInterval(iv); box.remove(); } }, 2000); }
+  if (!/[?&]diag/.test(location.search)) { const iv = setInterval(() => { if (!document.body.contains(box)) clearInterval(iv); else if (!stuck()) { clearInterval(iv); box.remove(); } }, 2000); }
   const add = (t) => { L.push(t); draw(); box.prepend(x); };
   if (DIAG.errs.length) add('받기 오류: ' + DIAG.errs.join(' / '));
   try { const c = await fetch('https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js', { cache: 'no-store' }); add('Firebase 파일 서버: ' + c.status); } catch (e) { add('Firebase 파일 서버: 연결 실패 ' + e.message); }
@@ -92,6 +97,13 @@ async function runDiag() {
     add(`일지 서버 직접 읽기: ${r.status} (${Date.now() - t0}ms)` + (r.ok ? '' : ' ' + (await r.text()).replace(/\s+/g, ' ').slice(0, 220)));
   } catch (e) { add('일지 서버 직접 읽기: 실패 ' + (e.name === 'AbortError' ? '15초 안에 대답 없음' : e.message)); }
   add('실시간 연결로 받은 것: ' + (DIAG.ok ? '있음' : '없음') + (DIAG.errs.length ? ' · 오류 ' + DIAG.errs.length + '건' : ''));
+  // 받기별 상태(서버/저장본만/대기/오류) — 대기·오류인 것만 보여 줘요
+  const bad = Object.entries(DIAG.st).filter(([, v]) => v !== '서버');
+  add(`받기 ${Object.keys(DIAG.st).length}곳 중 서버에서 못 받은 곳: ` + (bad.length ? bad.map(([p, v]) => `${p}(${v})`).join(', ').slice(0, 400) : '없음'));
+  try {
+    const t = await U.getIdToken(), r = await fetch(`https://firestore.googleapis.com/v1/projects/life-diary-1c3b8/databases/(default)/documents/spaces/${SID}/days?pageSize=300&mask.fieldPaths=updatedAt`, { headers: { Authorization: 'Bearer ' + t } });
+    const j = r.ok ? await r.json() : null; add(`날짜 기록 직접 읽기: ${r.status}` + (j ? ` · ${(j.documents || []).length}개` : ''));
+  } catch (e) { add('날짜 기록 직접 읽기: 실패 ' + e.message); }
 }
 
 // ── 아티팩트 저장(db)과 같은 모양으로: 경로는 spaces/{id}/… 아래로, 'data/users/{나}/…'(나만 보는 칸)는 private/{나}/s_{id}/… 로
@@ -124,7 +136,7 @@ const docApi = (p) => {
       catch (e) { if (e && e.code === 'not-found') { const o = {}; for (const [k, v] of ent) if (!(v && typeof v === 'object' && v.__delete__)) o[k] = v; await setDoc(ref(), o, { merge: true }); } else throw e; }
     },
     delete: async () => { await deleteDoc(ref()); },
-    onSnapshot: (cb, err) => onSnapshot(ref(), { includeMetadataChanges: false }, (s) => { if (!s.metadata.fromCache) DIAG.ok = true; cb(dsnap(s)); }, (e) => { DIAG.err(p, e); if (err) err(e); }),
+    onSnapshot: (cb, err) => { DIAG.watch(p); return onSnapshot(ref(), { includeMetadataChanges: false }, (s) => { DIAG.mark(p, s.metadata.fromCache); cb(dsnap(s)); }, (e) => { DIAG.err(p, e); if (err) err(e); }); },
     collection: (c) => collApi(`${p}/${c}`)
   };
 };
@@ -138,7 +150,7 @@ const collApi = (p, cons = []) => {
     limit: (n) => collApi(p, [...cons, limit(n)]),
     get: async () => qsnap(await getDocs(q())),
     add: async (x) => { const r = await addDoc(collection(fs, full(p)), clean(x)); return { id: r.id }; },
-    onSnapshot: (cb, err) => onSnapshot(q(), (s) => { if (!s.metadata.fromCache) DIAG.ok = true; cb(qsnap(s)); }, (e) => { DIAG.err(p, e); if (err) err(e); })
+    onSnapshot: (cb, err) => { DIAG.watch(p); return onSnapshot(q(), (s) => { DIAG.mark(p, s.metadata.fromCache); cb(qsnap(s)); }, (e) => { DIAG.err(p, e); if (err) err(e); }); }
   };
 };
 const db = { doc: docApi, collection: (p) => collApi(p) };
