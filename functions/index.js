@@ -201,6 +201,8 @@ exports.reportMail = onDocumentCreated('reports/{rid}', async (ev) => {
 });
 
 exports.holidaysDaily = onSchedule({ schedule: '10 4 * * *', timeZone: 'Asia/Seoul', retryCount: 1 }, async () => {
+  // 매일 새벽: 90일 지난 들어온 기록 지우기
+  try { const old = await db.collectionGroup('v').where('at', '<', Date.now() - 90 * 864e5).limit(400).get(); await Promise.all(old.docs.filter((d) => d.ref.parent.parent && d.ref.parent.parent.parent.id === 'vlog').map((d) => d.ref.delete())); logger.info('vlog cleanup', old.size); } catch (e) { logger.error('vlog cleanup', e); }
   const r = await fillHolidays(); logger.info('holidays', r);
 });
 
