@@ -110,6 +110,8 @@ if (menu && anchor) {
     <button class="mrowbtn" id="wOutBtn" type="button"><span>로그아웃</span><span class="mval">${esc(U.email)}</span><span class="chev">›</span></button></div>`);
   const showName = () => { const p = W.profCache[U.uid]; $('wNameVal').textContent = (p && p.name) || U.displayName || ''; };
   showName();
+  // 내 이름은 일지에 정해 둔 이름(프로필)을 먼저 써요 — 아직 안 불러왔으면 Google 계정 이름이 잠깐 보이던 문제
+  getDoc(doc(fs, `spaces/${SID}/profiles/${U.uid}`)).then((x) => { if (x.exists() && x.data().name) { W.profCache[U.uid] = { ...(W.profCache[U.uid] || {}), ...x.data() }; showName(); } }).catch(() => {});
   $('wNameBtn').addEventListener('click', () => { closeMenu(); const p = W.profCache[U.uid]; $('wName').value = (p && p.name) || U.displayName || ''; say('wNameMsg', ''); open('wNameModal'); setTimeout(showName, 1500); });
   $('wOutBtn').addEventListener('click', () => { closeMenu(); window.__logout(); });
 }
@@ -414,6 +416,7 @@ document.body.insertAdjacentHTML('beforeend', `
   <p class="note" id="wUpdNote"></p>
   <div class="wtools"><button type="button" id="wUpdAll">모두 펼치기</button><button type="button" id="wUpdNone">모두 접기</button></div>
   <div id="wUpdList"></div>
+  <div class="aubox"><div class="auh"><b>새 버전이 나오면 바뀐 점 창 띄우기</b>${sw('wUpdAutoSw', '새 버전이 나오면 바뀐 점 창 띄우기')}</div><p class="wstat" id="wUpdAutoNote"></p></div>
   <div class="aubox" id="wGhBox" hidden><div class="auh"><b>올리기 연결 ${crTag()}</b></div>
     <p>시험판의 '원래 주소에 올리기' 단추가 쓰는 GitHub 열쇠예요. GitHub → Settings → Developer settings → Fine-grained tokens에서 diary 저장소 하나만, Contents 'Read and write' 권한으로 만든 열쇠를 넣어 주세요. 저장한 열쇠는 서버만 읽을 수 있어요.</p>
     <div class="aur"><input class="tin" id="wGhTok" type="password" placeholder="github_pat_로 시작하는 열쇠" autocomplete="off"></div>
@@ -421,6 +424,12 @@ document.body.insertAdjacentHTML('beforeend', `
     <div class="aur"><button type="button" class="go" id="wGhSave">저장</button></div></div>
   <div class="actions"><button class="ghost" id="wUpdNo">닫기</button></div><div class="msg" id="wUpdMsg"></div></div></div>`);
 $('wUpdNo').addEventListener('click', () => close('wUpdModal'));
+// 바뀐 점 창 자동으로 띄우기: 사람마다 켜고 끌 수 있어요(private/{나}/web/prefs.updPopup, 기본은 켜짐)
+const prefRef = doc(fs, `private/${U.uid}/web/prefs`);
+let updPopup = true;
+const drawUpdAuto = () => { setSw('wUpdAutoSw', updPopup); $('wUpdAutoNote').textContent = updPopup ? '켜짐: 일지를 열 때 새 버전이 있으면 바뀐 점을 한 번 보여 줘요.' : '꺼짐: 바뀐 점은 메뉴 → 업데이트 내역에서 직접 볼 수 있어요.'; };
+const prefLoad = getDoc(prefRef).then((x) => { if (x.exists() && x.data().updPopup === false) updPopup = false; drawUpdAuto(); }).catch(() => drawUpdAuto());
+$('wUpdAutoSw').addEventListener('click', () => { updPopup = !updPopup; drawUpdAuto(); setDoc(prefRef, { updPopup, at: Date.now() }, { merge: true }).catch(() => {}); });
 $('wUpdAll').addEventListener('click', () => $('wUpdList').querySelectorAll('details').forEach((d) => { d.open = true; }));
 $('wUpdNone').addEventListener('click', () => $('wUpdList').querySelectorAll('details').forEach((d) => { d.open = false; }));
 const relDate = (r) => { const [y, m, d] = String(r.d || '').split('-').map(Number); return m ? `${y}년 ${m}월 ${d}일${r.t ? ' ' + r.t : ''}` : ''; };
@@ -465,7 +474,8 @@ swapBtn('mUpd', () => openUpd(0));
   try {
     const s = await getDoc(r), seen = s.exists() ? +s.data().b || 0 : 0;
     welcome(s.exists());
-    if (s.exists() && BUILD_NOW > seen && REL.some((x) => (+x.b || 0) > seen)) setTimeout(() => { if (!document.querySelector('.modal.on')) openUpd(seen); }, 1500);
+    await prefLoad;
+    if (updPopup && s.exists() && BUILD_NOW > seen && REL.some((x) => (+x.b || 0) > seen)) setTimeout(() => { if (!document.querySelector('.modal.on')) openUpd(seen); }, 1500);
     if (!s.exists() || BUILD_NOW > seen) await setDoc(r, { b: BUILD_NOW, at: Date.now() });
   } catch (e) {}
 })();
@@ -488,7 +498,7 @@ async function welcome(oldUser) {
     ${isIOS && !standalone ? `<p class="wstat bad">아이폰은 Safari 아래쪽 공유 버튼 → '홈 화면에 추가'를 한 뒤, 홈 화면의 생활일지 아이콘으로 열어야 알림을 켤 수 있어요(iOS 16.4 이상).</p>` : `<div class="aur"><button type="button" class="go" id="wWelNoti">지금 켜기</button></div>`}
     <p class="wstat" id="wWelMsg"></p></div>
   ${isIOS || standalone ? '' : `<div class="aubox"><div class="auh"><b>2. 앱으로 설치하기</b></div><p class="note" style="margin:4px 0 8px">설치하면 앱 목록과 홈 화면에 '생활일지' 아이콘이 생겨서 주소창 없이 앱처럼 바로 열려요. 측면 버튼·루틴 같은 '앱 열기'에서도 '생활일지'로 고를 수 있어요.</p>
-    <p class="note" id="wWelInstHow" style="margin:4px 0 0">${andr ? '삼성 인터넷: 주소창 오른쪽의 ⤓ 아이콘 → \'설치\' (아이콘이 없으면 아래 메뉴 ≡ → \'현재 페이지 추가\' → \'홈 화면\')<br>Chrome: 오른쪽 위 ⋮ → \'앱 설치\' 또는 \'홈 화면에 추가\'' : '브라우저 메뉴에서 \'앱 설치\' 또는 \'홈 화면에 추가\'를 눌러 주세요.'}</p></div>`}
+    <p class="note" id="wWelInstHow" style="margin:4px 0 0">${andr ? '삼성 인터넷: 주소창 오른쪽의 ⤓ 아이콘 → \'설치\' (아이콘이 없으면 아래 메뉴 ≡ → \'현재 페이지 추가\' → \'홈 화면\')<br>\'안전하지 않은 앱 차단됨\'(Google Play 프로텍트) 창이 뜨면 \'세부정보 더보기\' → \'무시하고 설치\'를 누르면 돼요. 일지가 만든 앱이라 괜찮아요.<br>Chrome: 오른쪽 위 ⋮ → \'홈 화면에 추가\' → \'설치\'' : '브라우저 메뉴에서 \'앱 설치\' 또는 \'홈 화면에 추가\'를 눌러 주세요.'}</p></div>`}
   <div class="aubox"><div class="auh"><b>${isIOS || standalone ? '2' : '3'}. 더 알아보기</b></div><p class="note" style="margin:4px 0 0">메뉴(⋯) → '기능 설명서'에 쓰는 법이 모두 있어요. 같이 쓸 사람은 메뉴 → '공유'에서 초대해요.</p></div>
   <div class="actions"><button class="ghost" id="wWelLater">나중에</button><button class="go" id="wWelOk">시작하기</button></div></div></div>`);
   const done = (keep) => { close('wWelModal'); if (keep) setDoc(wref, { at: Date.now() }).catch(() => {}); };
