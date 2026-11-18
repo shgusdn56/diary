@@ -5452,6 +5452,18 @@ const remote = new Map(), rows = new Map(), pending = new Map(), inflight = new 
     const up = () => { window.removeEventListener('pointerup', up, true); setTimeout(() => { if (t._wordEdit && !(e.detail >= 2)) { wordEditEnd(t); try { liveFmt(t); drawCaret(t, true); fmtBtns(t); selBar(t); } catch (er) {} } }, 0); };
     window.addEventListener('pointerup', up, true);
   }, true);
+  // 폰: 일지 칸을 쓰다가 화면을 밀어 커서가 화면 밖으로 나가면, 스크롤이 멈춘 뒤 그 칸을 닫아요.
+  // 열어 둔 채로 두면 바깥을 누를 때 휴대폰이 키보드를 다시 올리며 커서 자리로 화면을 확 끌어올렸어요(위치가 튀는 문제)
+  let logAwayT = 0;
+  scroller.addEventListener('scroll', () => {
+    if (!COARSE()) return; const t = document.activeElement; if (!t || !t.classList || !t.classList.contains('log')) return;
+    clearTimeout(logAwayT); logAwayT = setTimeout(() => {
+      if (document.activeElement !== t || !t.offsetParent) return;
+      const p = caretPoint(t, t.selectionEnd), y = t.offsetParent.getBoundingClientRect().top + p.y;
+      const vv = window.visualViewport, top = scroller.getBoundingClientRect().top + (window.hdOff ? hdOff() : 0), bot = vv ? vv.offsetTop + vv.height : innerHeight;
+      if (y < top - 4 || y - 24 > bot) { t._lpAt = 0; t.blur(); }
+    }, 200);
+  }, { passive: true });
   let noteOpen = null, nhlTapAt = 0; // 쪽지 표시를 눌렀을 땐 그 손가락이 아래 일지 칸까지 열지 않게
   // 폰: 쪽지를 연 채 바깥을 조금 스크롤하는 건 그대로, 많이 스크롤하면(화면 반쯤 넘게, 또는 쪽지가 화면 밖으로 나가면) 닫혀요
   let noteScroll0 = null, noteCloseT = 0;
