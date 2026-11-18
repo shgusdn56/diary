@@ -75,6 +75,15 @@ service cloud.firestore {
       allow read: if false;
       allow write: if isCreator();
     }
+    // 관리자 열람 기록: 서버(감사 로그)만 쓰고, 그 일지 구성원(나만 보는 일지는 본인)만 읽어요 — 아무도 지우거나 고칠 수 없어요
+    match /adminReads/{s}/r/{id} {
+      allow read: if signed() && role(s) != '';
+      allow write: if false;
+    }
+    match /adminReadsP/{u}/r/{id} {
+      allow read: if signed() && request.auth.uid == u;
+      allow write: if false;
+    }
     // 나만 보는 칸 (일지 공간마다 따로)
     match /private/{u}/{rest=**} {
       allow read, write: if signed() && request.auth.uid == u;
