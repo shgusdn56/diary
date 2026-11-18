@@ -1,6 +1,6 @@
 // 웹앱에서만 쓰는 화면: 공유(초대), 내 이름, 로그아웃 — Claude 아티팩트 전용 메뉴는 숨겨요
 import {
-  doc, getDoc, onSnapshot, updateDoc, setDoc, addDoc, deleteDoc, collection, arrayUnion, arrayRemove, deleteField, FieldPath
+  doc, getDoc, onSnapshot, updateDoc, setDoc, addDoc, deleteDoc, collection, arrayUnion, arrayRemove, deleteField, FieldPath, query, orderBy, limit
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 
 const W = window.__web, { fs, U, SID } = W;
@@ -444,3 +444,37 @@ if (IS_TEST && CREATOR) window.__testRelease = async (badge) => {
     const un = onSnapshot(r, (s) => { const x = s.data(); if (!x || !x.status) return; un(); if (x.status === 'done') set('올리기 시작됨 · 2~3분 뒤 새로고침하면 초록색으로 바뀌어요', '#1f5bc4'); else set('올리지 못했어요: ' + (x.msg || ''), '#d93025'); }, () => {});
   } catch (er) { set('올리지 못했어요: ' + (er.code || er.message), '#d93025'); }
 };
+
+// ── 오류 보고(노현우님 전용): 다른 분 화면이 막히거나 오류가 나면 자동으로 남는 보고를 일지 안에서 봐요
+if (CREATOR) {
+  setDoc(doc(fs, 'config', 'creator'), { uid: U.uid, at: Date.now() }, { merge: true }).catch(() => {}); // 서버가 보고 알림을 보낼 곳
+  const st4 = document.createElement('style');
+  st4.textContent = `.wrep { padding: 10px 0; border-bottom: 1px solid var(--line, #e3e7ee); } .wrep:last-child { border-bottom: 0; }
+.wreph { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; font-size: 13px; color: var(--mute, #6b7385); } .wreph b { color: var(--ink, #1f2329); font-size: 13.5px; }
+.wrep.new { background: var(--blue-l, #e8f0fe); border-radius: 10px; padding: 10px; border-bottom: 0; margin-bottom: 6px; }
+.wrep pre { margin: 6px 0 0; font: 12px/1.5 system-ui, sans-serif; white-space: pre-wrap; word-break: break-all; color: var(--ink, #1f2329); max-height: 40vh; overflow: auto; }
+.wrepk { font-style: normal; font-size: 11px; font-weight: 700; border-radius: 8px; padding: 0 6px; color: #fff; background: #d93025; } .wrepk.e { background: #e8710a; }
+#wRepBtn .wrepn { margin-left: auto; margin-right: 6px; min-width: 18px; height: 18px; border-radius: 9px; background: #d93025; color: #fff; font-size: 11px; font-weight: 700; display: inline-flex; align-items: center; justify-content: center; padding: 0 5px; } #wRepBtn .wrepn:empty { display: none; }`;
+  document.head.appendChild(st4);
+  document.body.insertAdjacentHTML('beforeend', `
+<div class="modal" id="wRepModal" role="dialog" aria-modal="true"><div class="sheet"><button class="wclose" type="button" aria-label="닫기">✕</button><h2>오류 보고 ${crTag()}</h2>
+  <p class="note">함께 쓰는 분 화면이 막히거나 오류가 나면 자동으로 여기 남아요(같은 분은 1시간에 한 번 알림). 내용을 Claude에게 "오류 보고 왔어"라고 알려 주면 확인해요.</p>
+  <div id="wRepList" style="max-height:60vh;overflow:auto"></div>
+  <div class="actions"><button class="ghost" id="wRepNo">닫기</button></div><div class="msg" id="wRepMsg"></div></div></div>`);
+  $('wRepNo').addEventListener('click', () => close('wRepModal'));
+  const acct = $('wAcct');
+  if (acct) acct.insertAdjacentHTML('afterbegin', `<button class="mrowbtn" id="wRepBtn" type="button"><span>오류 보고</span><span class="wrepn" id="wRepN"></span><span class="chev">›</span></button>`);
+  const seenRef = doc(fs, `private/${U.uid}/web/reportsSeen`);
+  let reps = [], seenAt = 0;
+  getDoc(seenRef).then((s) => { seenAt = s.exists() ? +s.data().at || 0 : 0; drawRepN(); }).catch(() => {});
+  const fmt = (t) => new Date(t).toLocaleString('ko-KR', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+  const drawRepN = () => { const n = reps.filter((r) => (r.at || 0) > seenAt).length; if ($('wRepN')) $('wRepN').textContent = n ? String(n) : ''; };
+  const drawList = () => {
+    $('wRepList').innerHTML = reps.length ? reps.map((r) => `<div class="wrep${(r.at || 0) > seenAt ? ' new' : ''}"><div class="wreph"><em class="wrepk${r.kind === 'error' ? ' e' : ''}">${r.kind === 'error' ? '화면 오류' : '불러오기 막힘'}</em><b>${esc(r.email || r.by || '')}</b><span>${esc(fmt(r.at || 0))}</span></div><pre>${esc((r.lines || []).join('\n'))}\n${esc(r.ua || '')}</pre></div>`).join('') : '<p class="note">아직 보고가 없어요.</p>';
+  };
+  // 최근 30건 (보고는 제작자만 읽을 수 있어요)
+  onSnapshot(query(collection(fs, 'reports'), orderBy('at', 'desc'), limit(30)), (s) => { reps = s.docs.map((d) => d.data()); drawRepN(); if ($('wRepModal').classList.contains('on')) drawList(); }, () => {});
+  const openRep = () => { closeMenu(); drawList(); open('wRepModal'); seenAt = Date.now(); setDoc(seenRef, { at: seenAt }).catch(() => {}); setTimeout(drawRepN, 300); };
+  if ($('wRepBtn')) $('wRepBtn').addEventListener('click', openRep);
+  if (/[?&]reports=1/.test(location.search)) setTimeout(openRep, 1500); // 오류 보고 알림을 눌러 들어오면 바로 열어요
+}
