@@ -247,13 +247,19 @@ async function pushReg() {
   return reg;
 }
 async function hashOf(t) { const b = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(t)); return [...new Uint8Array(b)].slice(0, 12).map((x) => x.toString(16).padStart(2, '0')).join(''); }
-async function registerDevice(ask) {
+async function registerDevice(ask, fresh) {
   if (!('Notification' in window) || !('serviceWorker' in navigator)) throw new Error(isIOS && !standalone ? 'IOS' : 'NOSUP');
   if (ask && Notification.permission !== 'granted') { const p = await Notification.requestPermission(); if (p !== 'granted') throw new Error(p === 'denied' ? 'DENIED' : 'NOPERM'); }
   if (Notification.permission !== 'granted') throw new Error('NOPERM');
   const m = await messaging(); if (!m) throw new Error(isIOS && !standalone ? 'IOS' : 'NOSUP');
   const reg = await pushReg();
-  const token = await msgMod.getToken(m, { serviceWorkerRegistration: reg });
+  let token = await msgMod.getToken(m, { serviceWorkerRegistration: reg });
+  // 새 번호 받기: 브라우저가 이미 무효가 된 옛 번호를 그대로 내놓는 경우가 있어서, 켤 때·서버가 지운 뒤에는 옛 번호를 버리고 새로 받아요
+  if (fresh) {
+    try { await msgMod.deleteToken(m); } catch (e) { console.warn('[push] deleteToken', e && (e.code || e.message)); }
+    try { const sub = await reg.pushManager.getSubscription(); if (sub) await sub.unsubscribe(); } catch (e) {}
+    token = await msgMod.getToken(m, { serviceWorkerRegistration: reg });
+  }
   if (!token) throw new Error('NOTOKEN');
   const id = await hashOf(token), old = devId();
   await setDoc(doc(fs, `private/${U.uid}/devices/${id}`), { token, at: Date.now(), ua: navigator.userAgent.slice(0, 160) });
@@ -281,11 +287,15 @@ $('wDevSw').addEventListener('click', async () => {
     drawDev(); say('wNotiMsg', '이 기기 알림을 껐어요.'); return;
   }
   say('wNotiMsg', '알림을 켜는 중…');
-  try { await registerDevice(true); drawDev(); say('wNotiMsg', '이 기기에서 알림을 받아요. 아래 \'테스트\'로 확인해 보세요.'); }
+  try { await registerDevice(true, true); drawDev(); say('wNotiMsg', '이 기기에서 알림을 받아요. 아래 \'테스트\'로 확인해 보세요.'); }
   catch (e) { console.warn('[push]', e); drawDev(); const n = $('wDevNote'); n.className = 'wstat bad'; n.textContent = devErr(e); say('wNotiMsg', ''); }
 });
 // 열 때마다 조용히 등록 번호를 새로 맞춰요(바뀌면 저장)
-setTimeout(() => { if (devId() && 'Notification' in window && Notification.permission === 'granted') registerDevice(false).catch(() => {}); }, 4000);
+setTimeout(async () => {
+  if (!(devId() && 'Notification' in window && Notification.permission === 'granted')) return;
+  let gone = false; try { gone = !(await getDoc(doc(fs, `private/${U.uid}/devices/${devId()}`))).exists(); } catch (e) {}
+  registerDevice(false, gone).catch(() => {}); // 서버가 무효 번호를 지웠으면 새 번호로
+}, 4000);
 
 // 수정 알림·오늘 일정 알림 설정: spaces/{id}/notify/{나}
 let nset = {};
