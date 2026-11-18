@@ -12,7 +12,7 @@ const isOwner = () => space.owner === U.uid;
 
 // ── 아티팩트에서만 되던 메뉴(서식 업데이트 메일, 기능 확인)는 감춰요 — 휴대폰 알림·PDF 백업 메일은 웹앱용으로 바꿔 끼워요(아래)
 const st = document.createElement('style');
-st.textContent = `#mUpd, #mCheck { display: none !important; }
+st.textContent = `#mCheck { display: none !important; }
 .wrow { display: flex; align-items: center; gap: 8px; padding: 8px 0; border-bottom: 1px solid var(--line, #e3e7ee); }
 .wrow:last-child { border-bottom: 0; }
 .wrow .wm { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 14px; }
@@ -362,3 +362,84 @@ swapBtn('mPdf', () => {
 
 // 창 오른쪽 위 ✕: 그 창 닫기
 document.addEventListener('click', (e) => { const x = e.target.closest && e.target.closest('.sheet > .wclose'); if (x) { const md = x.closest('.modal'); if (md) md.classList.remove('on'); } });
+
+// ── 업데이트 내역: 메뉴 '업데이트 내역'에서 언제 무엇이 바뀌었는지 보고, 새 버전이면 들어올 때 한 번 '새로 바뀐 점'을 띄워요
+const APP_SRC = [...document.scripts].map((s) => s.textContent).find((t) => /const RELEASES = \[\{"d"/.test(t)) || '';
+let REL = []; try { REL = JSON.parse((APP_SRC.match(/const RELEASES = (\[\{"d"[^\n]*\]);/) || [])[1] || '[]'); } catch (e) {}
+const BUILD_NOW = +((APP_SRC.match(/const BUILD = (\d+);/) || [])[1] || 0);
+const IS_TEST = !!window.__WEBJS;
+const st3 = document.createElement('style');
+st3.textContent = `#mUpd.crrow::after, #mUpd.ownrow::after { display: none !important; } #mUpdDot { display: none !important; }
+#wUpdList { max-height: 60vh; overflow: auto; margin: 4px 0 8px; }
+.wrel { padding: 10px 0; border-bottom: 1px solid var(--line, #e3e7ee); } .wrel:last-child { border-bottom: 0; }
+.wrelh { font-size: 13px; color: var(--mute, #6b7385); display: flex; align-items: center; gap: 6px; flex-wrap: wrap; } .wrelh b { color: var(--ink, #1f2329); font-size: 14px; }
+.wrel ul { margin: 6px 0 0; padding-left: 18px; } .wrel li { font-size: 13.5px; line-height: 1.55; margin: 2px 0; }
+.wnew { font-style: normal; font-size: 11px; font-weight: 700; color: #fff; background: var(--blue, #1f5bc4); border-radius: 8px; padding: 0 6px; }
+.wrel.on { background: var(--blue-l, #e8f0fe); border-radius: 10px; padding: 10px; border-bottom: 0; margin-bottom: 6px; }
+.wrel > summary { list-style: none; cursor: pointer; -webkit-tap-highlight-color: transparent; } .wrel > summary::-webkit-details-marker { display: none; }
+.wcnt { margin-left: auto; font-size: 12px; } .wchev { width: 8px; height: 8px; border-right: 2px solid currentColor; border-bottom: 2px solid currentColor; transform: rotate(45deg); margin: 0 4px 3px 6px; transition: transform .15s; }
+.wrel[open] .wchev { transform: rotate(-135deg); margin-bottom: -3px; }
+.wtools { display: flex; justify-content: flex-end; gap: 6px; margin-top: -4px; } .wtools button { font: inherit; font-size: 12.5px; border: 0; background: none; color: var(--blue, #1f5bc4); padding: 4px 6px; cursor: pointer; }
+body:has(.modal.on) #testBadge { display: none !important; }`;
+document.head.appendChild(st3);
+document.body.insertAdjacentHTML('beforeend', `
+<div class="modal" id="wUpdModal" role="dialog" aria-modal="true"><div class="sheet"><button class="wclose" type="button" aria-label="닫기">✕</button><h2 id="wUpdTitle">업데이트 내역</h2>
+  <p class="note" id="wUpdNote"></p>
+  <div class="wtools"><button type="button" id="wUpdAll">모두 펼치기</button><button type="button" id="wUpdNone">모두 접기</button></div>
+  <div id="wUpdList"></div>
+  <div class="aubox" id="wGhBox" hidden><div class="auh"><b>올리기 연결 ${crTag()}</b></div>
+    <p>시험판의 '원래 주소에 올리기' 단추가 쓰는 GitHub 열쇠예요. GitHub → Settings → Developer settings → Fine-grained tokens에서 diary 저장소 하나만, Contents 'Read and write' 권한으로 만든 열쇠를 넣어 주세요. 저장한 열쇠는 서버만 읽을 수 있어요.</p>
+    <div class="aur"><input class="tin" id="wGhTok" type="password" placeholder="github_pat_로 시작하는 열쇠" autocomplete="off"></div>
+    <p class="wstat" id="wGhInfo"></p>
+    <div class="aur"><button type="button" class="go" id="wGhSave">저장</button></div></div>
+  <div class="actions"><button class="ghost" id="wUpdNo">닫기</button></div><div class="msg" id="wUpdMsg"></div></div></div>`);
+$('wUpdNo').addEventListener('click', () => close('wUpdModal'));
+$('wUpdAll').addEventListener('click', () => $('wUpdList').querySelectorAll('details').forEach((d) => { d.open = true; }));
+$('wUpdNone').addEventListener('click', () => $('wUpdList').querySelectorAll('details').forEach((d) => { d.open = false; }));
+const relDate = (r) => { const [y, m, d] = String(r.d || '').split('-').map(Number); return m ? `${y}년 ${m}월 ${d}일${r.t ? ' ' + r.t : ''}` : ''; };
+function drawUpd(sinceB) {
+  const list = REL.slice().reverse();
+  $('wUpdNote').textContent = `지금 버전 v${BUILD_NOW}` + (sinceB ? ' · 지난번에 보신 뒤로 바뀐 점이에요(파란 칸).' : ' · 최근 것부터 보여 줘요.');
+  $('wUpdList').innerHTML = list.map((r, i) => {
+    const isNew = sinceB && (+r.b || 0) > sinceB;
+    const openIt = sinceB ? isNew : i === 0; // 새로 바뀐 것(없으면 맨 위 하나)만 펼쳐 두고 나머지는 접어요
+    return `<details class="wrel${isNew ? ' on' : ''}"${openIt ? ' open' : ''}><summary class="wrelh"><b>${r.b ? 'v' + esc(r.b) : '초기 판'}</b><span>${esc(relDate(r))}</span>${isNew ? '<em class="wnew">새로</em>' : ''}<span class="wcnt">${(r.notes || []).length}가지</span><i class="wchev" aria-hidden="true"></i></summary><ul>${(r.notes || []).map((n) => `<li>${esc(String(n).replace(/\*\*/g, ''))}</li>`).join('')}</ul></details>`;
+  }).join('') || '<p class="note">아직 기록이 없어요.</p>';
+}
+async function drawGh() {
+  try { const s = await getDoc(doc(fs, 'config', 'ghinfo')), x = s.exists() ? s.data() : null; $('wGhInfo').className = 'wstat' + (x ? ' ok' : ' bad'); $('wGhInfo').textContent = x ? `연결됨 (${new Date(x.at).toLocaleDateString('ko-KR')} 저장 · …${x.tail || ''})` : '아직 연결되지 않았어요.'; } catch (e) {}
+}
+$('wGhSave').addEventListener('click', async () => {
+  const t = $('wGhTok').value.trim();
+  if (!/^(github_pat_|ghp_)[A-Za-z0-9_]{20,}$/.test(t)) { say('wUpdMsg', 'github_pat_로 시작하는 열쇠를 붙여 넣어 주세요.', true); return; }
+  try { await setDoc(doc(fs, 'secret', 'github'), { token: t, at: Date.now() }); await setDoc(doc(fs, 'config', 'ghinfo'), { at: Date.now(), tail: t.slice(-4) }); $('wGhTok').value = ''; say('wUpdMsg', '올리기 연결을 저장했어요.'); drawGh(); }
+  catch (er) { say('wUpdMsg', '저장하지 못했어요: ' + (er.code || er.message), true); }
+});
+function openUpd(sinceB) {
+  say('wUpdMsg', ''); $('wUpdTitle').textContent = sinceB ? '새로 바뀐 점' : '업데이트 내역'; drawUpd(sinceB);
+  $('wGhBox').hidden = !(CREATOR && IS_TEST); if (CREATOR && IS_TEST) drawGh();
+  open('wUpdModal'); $('wUpdList').scrollTop = 0;
+}
+swapBtn('mUpd', () => openUpd(0));
+(() => { const m = $('mUpd'); if (m) { const sp = m.querySelector('span'); if (sp) sp.textContent = '업데이트 내역'; } })();
+// 들어올 때: 지난번에 본 버전보다 새로우면 한 번 띄워요 (처음 쓰는 분은 띄우지 않고 기억만)
+(async () => {
+  if (!BUILD_NOW) return;
+  const r = doc(fs, `private/${U.uid}/web/${IS_TEST ? 'seenTest' : 'seen'}`);
+  try {
+    const s = await getDoc(r), seen = s.exists() ? +s.data().b || 0 : 0;
+    if (s.exists() && BUILD_NOW > seen && REL.some((x) => (+x.b || 0) > seen)) setTimeout(() => { if (!document.querySelector('.modal.on')) openUpd(seen); }, 1500);
+    if (!s.exists() || BUILD_NOW > seen) await setDoc(r, { b: BUILD_NOW, at: Date.now() });
+  } catch (e) {}
+})();
+
+// ── 시험판 → 원래 주소 올리기 (제작자, 시험판에서만): 서버가 GitHub 작업을 시작시켜요
+if (IS_TEST && CREATOR) window.__testRelease = async (badge) => {
+  if (!confirm('지금 시험판을 원래 주소에 올릴까요? 함께 쓰는 모든 분에게 적용돼요.')) return;
+  const set = (t, c) => { badge.textContent = t; if (c) badge.style.background = c; };
+  set('올리는 중… 서버에 부탁하는 중');
+  try {
+    const r = await addDoc(collection(fs, 'jobs'), { kind: 'release', by: U.uid, at: Date.now() });
+    const un = onSnapshot(r, (s) => { const x = s.data(); if (!x || !x.status) return; un(); if (x.status === 'done') set('올리기 시작됨 · 2~3분 뒤 새로고침하면 초록색으로 바뀌어요', '#1f5bc4'); else set('올리지 못했어요: ' + (x.msg || ''), '#d93025'); }, () => {});
+  } catch (er) { set('올리지 못했어요: ' + (er.code || er.message), '#d93025'); }
+};
