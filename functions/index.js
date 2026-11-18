@@ -6,7 +6,7 @@
 //  5) 시험판 올리기(release): GitHub 작업을 시작시켜 test/ 를 원래 주소로 복사
 //  테스트·지금 보내기는 jobs 컬렉션에 문서를 하나 만들면 실행돼요(보안 규칙이 누가 만들 수 있는지 막아요).
 const { setGlobalOptions } = require('firebase-functions/v2');
-const { onDocumentCreated } = require('firebase-functions/v2/firestore');
+const { onDocumentCreated, onDocumentWritten } = require('firebase-functions/v2/firestore');
 const { onSchedule } = require('firebase-functions/v2/scheduler');
 const logger = require('firebase-functions/logger');
 const { initializeApp } = require('firebase-admin/app');
@@ -53,16 +53,36 @@ const md = (iso) => `${+iso.slice(5, 7)}월 ${+iso.slice(8, 10)}일`;
 const actLine = (a) => `${a.byName || '공유자'} · ${a.msg || ((a.dates || []).map(md).join(', ') + ' 수정')}`;
 
 // ── 1) 수정 알림
-exports.editAlert = onDocumentCreated('spaces/{sid}/activity/{aid}', async (ev) => {
-  const a = ev.data && ev.data.data(); const { sid } = ev.params;
-  if (!a || !a.by) return;
+// 수정 알림: 날짜 칸을 고친 사람이 그 칸을 빠져나가면(fin이 새로 찍히면) 바로 — 앱을 닫을 때까지 기다리지 않아요
+//  지난번 알린 내용(dayNoti)과 비교해 더한 줄·지운 줄·근무·메모 변경을 짧게 보내고, 같은 날짜는 알림 하나로 바꿔 보여요
+const clean = (t) => stripTags(String(t || '')).replace(/[\u2062\u2063]/g, '');
+function dayDiff(o, n) {
+  const out = [];
+  const ol = clean(o.log).split('\n').map((x) => x.trim()).filter(Boolean), nl = clean(n.log).split('\n').map((x) => x.trim()).filter(Boolean);
+  const os = new Set(ol), ns = new Set(nl);
+  for (const x of nl) if (!os.has(x)) out.push('+ ' + x);
+  for (const x of ol) if (!ns.has(x)) out.push('- ' + x);
+  if ((o.work || '') !== (n.work || '')) out.push(`근무: ${o.work || '없음'} → ${n.work || '없음'}`);
+  if ((o.molly || '') !== (n.molly || '')) out.push(`메모: ${o.molly || '없음'} → ${n.molly || '없음'}`);
+  return out;
+}
+exports.dayAlert = onDocumentWritten('spaces/{sid}/days/{date}', async (ev) => {
+  const { sid, date } = ev.params;
+  const before = ev.data.before.exists ? ev.data.before.data() : {}, after = ev.data.after.exists ? ev.data.after.data() : null;
+  if (!after || !after.updatedBy || !((after.fin || 0) > (before.fin || 0))) return; // 칸을 빠져나간 순간만
+  const nref = db.doc(`spaces/${sid}/dayNoti/${date}`), last = await nref.get();
+  const base = last.exists ? last.data() : (Array.isArray(after.hist) && after.hist.length ? after.hist[after.hist.length - 1] : before);
+  const diff = dayDiff(base || {}, after);
+  await nref.set({ log: after.log || '', work: after.work || '', molly: after.molly || '', at: Date.now() });
+  if (!diff.length) return;
   const sp = await db.doc(`spaces/${sid}`).get(); if (!sp.exists) return;
-  const ns = await db.collection(`spaces/${sid}/notify`).where('on', '==', true).get();
-  const jn = await journalName(sid);
+  let who = '공유자'; try { const p = await db.doc(`spaces/${sid}/profiles/${after.updatedBy}`).get(); if (p.exists && p.data().name) who = p.data().name; } catch (e) {}
+  const jn = await journalName(sid), ns = await db.collection(`spaces/${sid}/notify`).where('on', '==', true).get();
+  const body = `${who} · ${md(date)}\n` + diff.slice(0, 6).join('\n') + (diff.length > 6 ? `\n외 ${diff.length - 6}곳` : '');
   for (const n of ns.docs) {
-    if (n.id === a.by) continue;
+    if (n.id === after.updatedBy) continue;
     if (!(await isMember(sid, n.id, sp.data()))) continue;
-    try { await pushTo(n.id, { title: `[${jn}] 수정 알림`, body: actLine(a), url: lnk(sid) }); } catch (e) { logger.error('editAlert', e); }
+    try { await pushTo(n.id, { title: `[${jn}] 수정 알림`, body: body.slice(0, 600), url: lnk(sid), tag: `day-${sid}-${date}` }); } catch (e) { logger.error('dayAlert', e); }
   }
 });
 
