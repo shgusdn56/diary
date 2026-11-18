@@ -14,7 +14,7 @@ button.g { background: transparent; color: #1f5bc4; }
 <h1>생활일지 연결 진단</h1>
 <p>한 단계씩 시험해요. 끝나면 화면을 캡처해 Claude에게 보내 주세요.</p>
 <div id="out"></div>
-<button id="again" type="button">다시 시험</button><button id="clear" class="g" type="button">저장된 사이트 파일 지우기</button>
+<button id="again" type="button">다시 시험</button><button id="lp" class="g" type="button">긴 기다림 방식으로 시험</button><button id="clear" class="g" type="button">저장된 사이트 파일 지우기</button>
 <script type="module">
 const out = document.getElementById('out');
 const line = (t, c) => { const d = document.createElement('div'); if (c) d.className = c; d.textContent = t; out.appendChild(d); return d; };
@@ -35,7 +35,14 @@ async function run() {
     const ks = self.caches ? await caches.keys() : [];
     return `등록 ${rs.length}개 · 저장소 ${ks.join(', ') || '없음'}`;
   }, 5000);
-  await step('일지가 여는 shim.js', async () => { const r = await fetch('shim.js?x=' + Date.now(), { cache: 'no-store' }); const t = await r.text(); return `${r.status} · 진단 기능 ${t.includes('runDiag') ? '있음(새 판)' : '없음(옛 판)'}`; });
+  await step('일지의 기기 저장소(아직 서버에 안 올라간 수정 수)', async () => {
+    const dbs = indexedDB.databases ? (await indexedDB.databases()).map((d) => d.name).filter((n) => /firestore/.test(n || '')) : [];
+    if (!dbs.length) return '없음';
+    const out = [];
+    for (const n of dbs) out.push(await new Promise((ok) => { const rq = indexedDB.open(n); rq.onerror = () => ok(n + ': 열지 못함'); rq.onblocked = () => ok(n + ': 다른 탭이 쓰는 중'); rq.onsuccess = () => { const d = rq.result; try { if (!d.objectStoreNames.contains('mutations')) { d.close(); ok(n.split('/').pop() + ': 수정 대기 없음'); return; } const c = d.transaction('mutations').objectStore('mutations').count(); c.onsuccess = () => { d.close(); ok(`${n.split('/').pop()}: 수정 대기 ${c.result}개`); }; c.onerror = () => { d.close(); ok(n + ': 세지 못함'); }; } catch (e) { d.close(); ok(n + ': ' + e.message); } }; }));
+    return out.join(' · ');
+  }, 8000);
+  await step('일지가 여는 shim.js', async () => { const r = await fetch('shim.js?x=' + Date.now(), { cache: 'no-store' }); const t = await r.text(); return `${r.status} · ${t.includes('experimentalForceLongPolling') ? '최신(긴 기다림 방식)' : t.includes('runDiag') ? '조금 옛 판(긴 기다림 전)' : '옛 판'}`; });
   await step('일지가 여는 index.html', async () => { const r = await fetch('./?x=' + Date.now(), { cache: 'no-store' }); const t = await r.text(); const m = t.match(/const BUILD = (\d+)/); return `${r.status} · 판 ${m ? m[1] : '?'}`; });
   let A, Au, F;
   if (!(await step('Firebase 프로그램 받기', async () => { [A, Au, F] = await Promise.all([import(B + 'firebase-app.js'), import(B + 'firebase-auth.js'), import(B + 'firebase-firestore.js')]); }))) return;
@@ -45,7 +52,9 @@ async function run() {
   if (!(await step('로그인 상태 확인', () => new Promise((ok) => { const un = Au.onAuthStateChanged(auth, (x) => { un(); u = x; ok(x ? '로그인됨' : '로그인 안 됨(일지에서 먼저 로그인해 주세요)'); }); }), 10000)) || !u) return;
   let tok = '';
   await step('로그인 열쇠 받기', async () => { tok = await u.getIdToken(true); return '받음'; });
-  const fs = F.initializeFirestore(app, {});
+  const LP = /[?&]lp/.test(location.search);
+  line('연결 방식: ' + (LP ? '긴 기다림(long polling)' : '기본(스트리밍)'));
+  const fs = F.initializeFirestore(app, LP ? { experimentalForceLongPolling: true } : {});
   let sps = [];
   if (!(await step('내 일지 찾기(서버)', async () => { const q = await F.getDocsFromServer(F.query(F.collection(fs, 'spaces'), F.where('members', 'array-contains', u.email))); sps = q.docs; return `${q.size}개`; }))) {
     await step('같은 내용을 직접 읽기(REST)', async () => {
@@ -62,7 +71,8 @@ async function run() {
   }
   line('끝', 'ok');
 }
-document.getElementById('again').onclick = run;
+document.getElementById('again').onclick = () => location.reload();
+document.getElementById('lp').onclick = () => { location.search = /[?&]lp/.test(location.search) ? '' : '?lp=1'; };
 document.getElementById('clear').onclick = async () => {
   try { for (const r of await navigator.serviceWorker.getRegistrations()) await r.unregister(); for (const k of await caches.keys()) await caches.delete(k); line('저장된 사이트 파일을 지웠어요. 일지를 다시 열면 새로 받아요. (일지 내용은 그대로예요)', 'ok'); }
   catch (e) { line('지우지 못했어요: ' + e.message, 'bad'); }
