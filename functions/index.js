@@ -3,6 +3,7 @@
 //  2) 오늘 일정 알림: 각자 정한 시각에 그날 일지(일정)를 푸시
 //  3) PDF 백업 메일: 일지 주인이 정한 주기·시각에 누적 PDF를 메일로
 //  4) 공휴일 채우기: 매일, 올해·내년 공휴일을 각 일지의 meta/holidays와 맞춰요(자동으로 넣은 날짜만 고치고 지워요)
+//  5) 시험판 올리기(release): GitHub 작업을 시작시켜 test/ 를 원래 주소로 복사
 //  테스트·지금 보내기는 jobs 컬렉션에 문서를 하나 만들면 실행돼요(보안 규칙이 누가 만들 수 있는지 막아요).
 const { setGlobalOptions } = require('firebase-functions/v2');
 const { onDocumentCreated } = require('firebase-functions/v2/firestore');
@@ -204,6 +205,13 @@ exports.runJob = onDocumentCreated({ document: 'jobs/{jid}', memory: '2GiB', tim
       const r = await sendPdf(j.sid, { test: !!j.test });
       await done({ result: r, msg: r.skipped || `${r.sent}명에게 보냈어요 · ${r.span} · 기록한 날 ${r.days}일 · ${r.kb}KB` });
       if (!j.test) await db.doc(`spaces/${j.sid}`).set({ pdfLast: { at: Date.now(), ok: true, msg: r.skipped || `${r.span} · ${r.days}일` } }, { merge: true });
+    } else if (j.kind === 'release') {
+      // 시험판(test/)을 원래 주소에 올리기: GitHub의 '시험판 올리기' 작업을 시작시켜요(열쇠는 secret/github, 제작자만 저장)
+      const g = await db.doc('secret/github').get(), tok = g.exists && g.data().token;
+      if (!tok) throw new Error('올리기 연결(GitHub 열쇠)이 아직 없어요. 업데이트 내역 창에서 먼저 저장해 주세요.');
+      const r = await fetch('https://api.github.com/repos/shgusdn56/diary/dispatches', { method: 'POST', headers: { Authorization: 'Bearer ' + tok, Accept: 'application/vnd.github+json', 'User-Agent': 'diary-release', 'X-GitHub-Api-Version': '2022-11-28' }, body: JSON.stringify({ event_type: 'release-test', client_payload: { at: j.at } }) });
+      if (r.status !== 204) throw new Error('GitHub이 받아 주지 않았어요(' + r.status + '): ' + (await r.text()).replace(/\s+/g, ' ').slice(0, 160));
+      await done({ msg: '올리기를 시작했어요. 2~3분 뒤 원래 주소에 반영돼요.' });
     } else if (j.kind === 'holidays') {
       const r = await fillHolidays();
       await done({ result: r, msg: `공휴일 ${r.found}개를 확인했어요 · 새로 넣음 ${r.add} · 이름 고침 ${r.upd} · 빠져서 지움 ${r.del}` });

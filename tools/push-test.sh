@@ -9,13 +9,34 @@ ROOT=$(git rev-parse --show-toplevel); cd "$ROOT"
 OUT=$(mktemp -d); WT=$(mktemp -d)
 python3 tools/build.py src/app.html "$OUT/index.html" >/dev/null
 cp web.js sw.js manifest.webmanifest icon-192.png icon-512.png diag.html "$OUT/"
+cp src/app.html "$OUT/_app.html"   # 올리기 작업이 이걸로 원래 주소의 index.html·src/app.html을 만들어요
 python3 - "$OUT/index.html" <<'PY'
 import sys; p = sys.argv[1]; s = open(p, encoding='utf-8').read()
 # 로그인 연결은 진짜(../shim.js)를 쓰고, 화면 코드(web.js)는 시험판 것을 쓰게
 s = s.replace('href="shim.js"', 'href="../shim.js"').replace('src="shim.js"', 'src="../shim.js"')
 s = s.replace('<script type="module" src="../shim.js">', '<script>window.__WEBJS = new URL("web.js", location.href).href;</script>\n<script type="module" src="../shim.js">', 1)
 assert 'window.__WEBJS' in s
-tag = '<div style="position:fixed;left:8px;bottom:calc(8px + env(safe-area-inset-bottom));z-index:2147483003;background:#e8710a;color:#fff;font:700 12px system-ui,sans-serif;padding:3px 10px;border-radius:10px;pointer-events:none">시험판</div>\n'
+# 시험판 표시: 원래 주소(../)와 화면 파일을 비교해서 '아직 안 올림'인지 '올라감'인지 보여 줘요
+tag = '''<div id="testBadge" style="position:fixed;left:8px;bottom:calc(8px + env(safe-area-inset-bottom));z-index:2147483003;background:#e8710a;color:#fff;font:700 12px/1.4 system-ui,sans-serif;padding:4px 10px;border-radius:10px;pointer-events:none;max-width:70vw">시험판 · 비교하는 중…</div>
+<script>(async () => {
+  const b = document.getElementById('testBadge');
+  const g = async (u) => { try { const r = await fetch(u + '?x=' + Date.now(), { cache: 'no-store' }); return r.ok ? await r.text() : ''; } catch (e) { return ''; } };
+  const [li, ti, lw, tw, ls, ts] = await Promise.all([g('../'), g('./'), g('../web.js'), g('web.js'), g('../sw.js'), g('sw.js')]);
+  const bn = (s) => (s.match(/const BUILD = (\\d+)/) || [])[1] || '?';
+  const lb = bn(li), tb = bn(ti), diff = [];
+  if (lb !== tb) diff.push('일지 화면'); if (lw !== tw) diff.push('웹앱 창'); if (ls !== ts) diff.push('빠르게 열기');
+  if (!li || !lw) { b.textContent = '시험판 v' + tb + ' · 원래 주소와 비교하지 못했어요'; return; }
+  if (!diff.length) { b.style.background = '#188038'; b.textContent = '시험판 v' + tb + ' · 원래 주소에 올라감(같아요)'; }
+  else {
+    b.textContent = '시험판 v' + tb + ' · 아직 안 올림 (원래 v' + lb + ' · 다른 곳: ' + diff.join(', ') + ')';
+    // 제작자: 이 자리에서 바로 원래 주소에 올리기 (실제 동작은 web.js의 window.__testRelease)
+    const go = document.createElement('button'); go.type = 'button'; go.textContent = '원래 주소에 올리기';
+    go.style.cssText = 'display:block;margin-top:4px;border:0;border-radius:8px;background:#fff;color:#e8710a;font:700 12px system-ui,sans-serif;padding:4px 10px;pointer-events:auto';
+    go.onclick = () => (window.__testRelease ? window.__testRelease(b) : alert('일지가 다 열린 뒤에 눌러 주세요. 노현우님만 올릴 수 있어요.'));
+    b.appendChild(go);
+  }
+})();</script>
+'''
 i = s.rindex('</body>'); open(p, 'w', encoding='utf-8').write(s[:i] + tag + s[i:])
 PY
 git fetch -q origin main
