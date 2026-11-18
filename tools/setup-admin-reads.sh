@@ -17,8 +17,8 @@ gcloud projects get-iam-policy "$P" --format=json > "$TMP"
 python3 - "$TMP" <<'PY'
 import json, sys
 p = sys.argv[1]; pol = json.load(open(p))
-cfgs = pol.setdefault('auditConfigs', [])
-for svc in ('firestore.googleapis.com', 'datastore.googleapis.com'):
+cfgs = [x for x in pol.setdefault('auditConfigs', []) if x.get('service') != 'firestore.googleapis.com']; pol['auditConfigs'] = cfgs
+for svc in ('datastore.googleapis.com',):  # Firestore 감사 로그 설정은 이 이름으로만 받아요
     c = next((x for x in cfgs if x.get('service') == svc), None)
     if c is None: c = {'service': svc, 'auditLogConfigs': []}; cfgs.append(c)
     if not any(l.get('logType') == 'DATA_READ' for l in c['auditLogConfigs']): c['auditLogConfigs'].append({'logType': 'DATA_READ'})
