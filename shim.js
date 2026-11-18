@@ -20,6 +20,7 @@ const app = initializeApp({
   appId: "1:500724626014:web:d429923495cd82e663bacf"
 });
 const auth = getAuth(app);
+window.__step = '로그인 상태 확인 중(Firebase 로그인 응답 없음)'; // 로그인 전 감시(index.html)가 어디서 멈췄는지 보고할 때 써요
 let fs;
 // 네이버·카카오톡 등 앱 안의 브라우저: Google 로그인·실시간 연결이 막히는 경우가 많아요
 const UA = navigator.userAgent;
@@ -56,7 +57,7 @@ const showGate = (msg, withBtn) => { gate.hidden = false; gMsg.textContent = msg
 const gsiReady = () => new Promise((ok) => { const t = setInterval(() => { if (window.google && google.accounts && google.accounts.id) { clearInterval(t); ok(); } }, 100); });
 gsiReady().then(() => {
   google.accounts.id.initialize({ client_id: CLIENT_ID, ux_mode: 'popup', use_fedcm_for_prompt: true,
-    callback: async (r) => { try { gMsg.textContent = '로그인 중…'; await signInWithCredential(auth, GoogleAuthProvider.credential(r.credential)); } catch (e) { gMsg.textContent = '로그인하지 못했어요: ' + (e.code || e.message); } } });
+    callback: async (r) => { try { gMsg.textContent = '로그인 중…'; window.__step = 'Google 로그인 받음 · Firebase 로그인 중'; await signInWithCredential(auth, GoogleAuthProvider.credential(r.credential)); } catch (e) { gMsg.textContent = '로그인하지 못했어요: ' + (e.code || e.message); } } });
   google.accounts.id.renderButton(document.getElementById('gbtn'), { theme: 'filled_blue', size: 'large', shape: 'pill', text: 'signin_with', locale: 'ko' });
 });
 window.__logout = async () => { try { if (window.google) google.accounts.id.disableAutoSelect(); } catch (e) {} await signOut(auth); location.reload(); };
@@ -240,6 +241,7 @@ function runApp() {
 }
 
 onAuthStateChanged(auth, async (u) => {
+  window.__step = u ? '로그인됨 · 일지 찾는 중' : '로그인 화면(로그인 안 됨)' + (window.google && google.accounts && google.accounts.id ? '' : ' · Google 로그인 단추 프로그램을 못 받음');
   if (!u) { showGate('Google 계정으로 로그인해 주세요.', true); return; }
   U = u;
   showGate('일지를 여는 중…', false);
@@ -255,6 +257,7 @@ onAuthStateChanged(auth, async (u) => {
     if (typeof SPACE.memoLabel === 'string' && SPACE.memoLabel) window.__DEF_LABEL = SPACE.memoLabel.slice(0, 12);
     gate.hidden = true;
     window.__web = { fs, auth, U: u, SID, SPACE, profCache, creator: u.email === CREATOR_EMAIL };
+    window.__step = '일지 열림';
     runApp();
     setTimeout(runDiag, /[?&]diag/.test(location.search) ? 3000 : 12000);
     import(window.__WEBJS || './web.js').catch((e) => console.error('[web]', e)); // 시험판(test/)은 자기 web.js를 써요

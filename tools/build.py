@@ -13,7 +13,23 @@ s = s.replace("const DEF_LABEL0 = '메모';", "const DEF_LABEL0 = window.__DEF_L
 main = '<script>\n(() => {\n  const WD = '
 assert s.count(main) == 1
 s = s.replace(main, '<script type="text/x-app">\n(() => {\n  const WD = ', 1)
-head_add = '''<link rel="modulepreload" href="shim.js">
+head_add = '''<script>
+/* 로그인 전 감시: 20초가 지나도 로그인 화면이 안 뜨고 '불러오는 중'에 멈춰 있으면, 기기·브라우저·오류만 담아 보고해요(로그인 없이, 이름·메일 없음) */
+(function () {
+  var errs = [];
+  window.addEventListener('error', function (e) { if (errs.length < 6) errs.push((e.message || 'load error') + ' @' + ((e.filename || (e.target && (e.target.src || e.target.href)) || '') + '').split('/').pop() + ':' + (e.lineno || '')); }, true);
+  window.addEventListener('unhandledrejection', function (e) { var r = e.reason; if (errs.length < 6) errs.push('promise: ' + ((r && (r.message || r.code)) || r)); });
+  setTimeout(function () {
+    var g = document.getElementById('gate'), m = document.getElementById('gateMsg'); if (!g || g.hidden || !m) return;
+    var t = m.textContent || ''; if (!/불러오는 중|여는 중|로그인 중/.test(t)) return;
+    var S = function (v) { return { stringValue: String(v || '').slice(0, 900) }; };
+    var body = { fields: { at: { integerValue: String(Date.now()) }, ua: S(navigator.userAgent.slice(0, 220)), msg: S(t.slice(0, 100)), errs: S(errs.join(' | ')), url: S(location.href.slice(0, 200)), gsi: { booleanValue: !!(window.google && google.accounts && google.accounts.id) }, step: S(window.__step || '(로그인 코드가 시작되지 않음)') } };
+    try { fetch('https://firestore.googleapis.com/v1/projects/life-diary-1c3b8/databases/(default)/documents/prereports', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) }).catch(function () {}); } catch (e) {}
+    m.textContent = t + ' — 오래 걸리고 있어요. 문제 내용은 자동으로 전달됐어요. 잠시 뒤 새로고침해 보세요.';
+  }, 20000);
+})();
+</script>
+<link rel="modulepreload" href="shim.js">
 <link rel="modulepreload" href="https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js">
 <link rel="modulepreload" href="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js">
 <link rel="modulepreload" href="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js">

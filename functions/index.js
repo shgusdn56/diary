@@ -190,14 +190,21 @@ exports.reportMail = onDocumentCreated('reports/{rid}', async (ev) => {
   if (last.exists && Date.now() - (last.data().at || 0) < 3600e3) return;
   await rate.set({ at: Date.now() });
   // 제작자 기기로 휴대폰 알림(제작자가 일지를 열 때 config/creator에 자기 id를 남겨 둬요)
-  try { const c = await db.doc('config/creator').get(); const cu = c.exists && c.data().uid; if (cu) await pushTo(cu, { title: `[오류 보고] ${r.kind === 'error' ? '화면 오류' : '불러오기 막힘'}`, body: `${r.email || r.by} · ${(r.lines || [])[0] || ''}`.slice(0, 200), url: SITE + '?reports=1', tag: 'report' }); } catch (e) { logger.error('reportPush', e); }
+  try { const c = await db.doc('config/creator').get(); const cu = c.exists && c.data().uid; if (cu) await pushTo(cu, { title: `[오류 보고] ${r.kind === 'error' ? '화면 오류' : r.kind === 'prelogin' ? '로그인 전 막힘' : '불러오기 막힘'}`, body: `${r.email || r.by} · ${(r.lines || [])[0] || ''}`.slice(0, 200), url: SITE + '?reports=1', tag: 'report' }); } catch (e) { logger.error('reportPush', e); }
   try {
     const { from, t } = await mailer();
     const jn = r.sid ? await journalName(r.sid) : '생활일지';
     const when = new Date(r.at || Date.now()).toLocaleString('ko-KR', { timeZone: 'Asia/Seoul' });
-    await t.sendMail({ from: `"생활일지 오류 보고" <${from}>`, to: from, subject: `[생활일지 오류 보고] ${r.email || r.by} · ${r.kind === 'error' ? '화면 오류' : '불러오기 막힘'} · ${when}`,
+    await t.sendMail({ from: `"생활일지 오류 보고" <${from}>`, to: from, subject: `[생활일지 오류 보고] ${r.email || r.by} · ${r.kind === 'error' ? '화면 오류' : r.kind === 'prelogin' ? '로그인 전 막힘' : '불러오기 막힘'} · ${when}`,
       text: `일지: ${jn} (${r.sid || '-'})\n사람: ${r.email || '-'} (${r.by})\n시각: ${when}\n주소: ${r.url || '-'}\n브라우저: ${r.ua || '-'}\n\n${(r.lines || []).join('\n')}\n\n— 이 메일을 Claude에게 \"오류 보고 왔어\"라고 알려 주면 확인해요. (보고 번호 ${ev.params.rid})` });
   } catch (e) { logger.error('reportMail', e); }
+});
+
+// ── 로그인 전 막힘 보고 → 보통 오류 보고로 옮겨요(목록·휴대폰 알림·메일이 그대로 따라와요, 1시간에 한 번)
+exports.preReport = onDocumentCreated('prereports/{rid}', async (ev) => {
+  const r = ev.data && ev.data.data(); if (!r) return;
+  await db.collection('reports').add({ kind: 'prelogin', by: '(로그인 전)', email: '(로그인 전 · 누군지 모름)', sid: '', at: Number(r.at) || Date.now(), url: String(r.url || ''), ua: String(r.ua || ''),
+    lines: ['로그인 화면이 안 뜨고 멈춤', '화면 글: ' + (r.msg || ''), '멈춘 단계: ' + (r.step || ''), 'Google 로그인 단추 프로그램: ' + (r.gsi ? '받음' : '못 받음'), '오류: ' + (r.errs || '없음')] });
 });
 
 exports.holidaysDaily = onSchedule({ schedule: '10 4 * * *', timeZone: 'Asia/Seoul', retryCount: 1 }, async () => {

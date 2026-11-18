@@ -53,6 +53,16 @@ service cloud.firestore {
       allow write: if signed() && request.auth.uid == u && request.resource.data.keys().hasOnly(['email', 'name', 'at', 'b', 'sid', 'own']);
       allow read: if isCreator();
     }
+    // 로그인 전 막힘 보고: 로그인 화면이 안 뜰 때 기기·브라우저·오류만(이름·메일 없음) 남겨요 — 누구나 쓰기만, 크기 제한
+    match /prereports/{r} {
+      allow create: if request.resource.data.keys().hasOnly(['at', 'ua', 'msg', 'errs', 'url', 'gsi', 'step'])
+        && request.resource.data.ua is string && request.resource.data.ua.size() <= 220
+        && request.resource.data.errs is string && request.resource.data.errs.size() <= 900
+        && request.resource.data.msg is string && request.resource.data.msg.size() <= 200
+        && request.resource.data.url is string && request.resource.data.url.size() <= 200
+        && request.resource.data.step is string && request.resource.data.step.size() <= 200;
+      allow read: if isCreator();
+    }
     // 문제 보고: 로그인한 사람은 자기 이름으로 남길 수만 있고, 읽기는 제작자만(서버가 제작자 메일로 보내요)
     match /reports/{r} {
       allow create: if signed() && request.resource.data.by == request.auth.uid
