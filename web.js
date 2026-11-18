@@ -223,7 +223,11 @@ async function job(kind, extra, msgId) {
     sayJ(msgId, kind === 'pdf' ? 'PDF를 만들어 보내는 중… (1분쯤 걸려요)' : '보내는 중…');
     let un = () => {};
     const t = setTimeout(() => { un(); sayJ(msgId, '서버가 아직 대답하지 않아요. 서버 기능이 아직 켜지지 않았을 수 있어요.', true); }, 180000);
-    un = onSnapshot(r, (s) => { const x = s.data(); if (!x || !x.status) return; clearTimeout(t); un(); sayJ(msgId, (x.status === 'done' ? '' : '실패: ') + (x.msg || ''), x.status !== 'done'); }, () => {});
+    un = onSnapshot(r, (s) => { const x = s.data(); if (!x || !x.status) return; clearTimeout(t); un(); sayJ(msgId, (x.status === 'done' ? '' : '실패: ') + (x.msg || ''), x.status !== 'done');
+      // 이 기기 번호가 무효라고 나오면(사이트 파일을 지웠거나 브라우저가 번호를 바꿈) 바로 새 번호로 다시 등록해요
+      if (/^test-/.test(kind) && /not-registered|NotRegistered/.test(x.msg || '') && devId() && 'Notification' in window && Notification.permission === 'granted') {
+        registerDevice(false, true).then(() => sayJ(msgId, (x.msg || '') + ' → 이 기기를 새 번호로 다시 등록했어요. 테스트를 한 번 더 눌러 주세요.'), () => {});
+      } }, () => {});
   } catch (er) { sayJ(msgId, '부탁하지 못했어요: ' + (er.code || er.message), true); }
 }
 
@@ -283,7 +287,9 @@ function drawDev() {
 $('wDevSw').addEventListener('click', async () => {
   const id = devId();
   if (id && $('wDevSw').classList.contains('on')) {
-    try { await deleteDoc(doc(fs, `private/${U.uid}/devices/${id}`)); localStorage.removeItem(DKEY); } catch (e) {}
+    // 서버 대답을 기다리지 않고 바로 꺼요(연결이 느리면 누른 게 반응 없는 것처럼 보였어요). 지우기는 뒤에서 계속돼요.
+    try { localStorage.removeItem(DKEY); } catch (e) {}
+    deleteDoc(doc(fs, `private/${U.uid}/devices/${id}`)).catch(() => {});
     drawDev(); say('wNotiMsg', '이 기기 알림을 껐어요.'); return;
   }
   say('wNotiMsg', '알림을 켜는 중…');
