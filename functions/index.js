@@ -305,3 +305,57 @@ exports.runJob = onDocumentCreated({ document: 'jobs/{jid}', memory: '2GiB', tim
 });
 
 
+
+// ── 관리자 열람 알림: 누군가(제작자 포함) Firebase 관리 화면·관리자 도구로 일지 자료를 읽으면
+//  Google 감사 로그(Data Access) → 로그 싱크 → Pub/Sub 'admin-reads' → 여기로 와요.
+//  읽은 일지의 구성원에게 휴대폰 알림, 주인에게 메일을 보내고, 일지 메뉴 '관리자 열람 기록'에 남겨요.
+//  (일지 앱으로 평소 읽고 쓰는 건 Firebase 로그인 요청이라 이 로그에 걸리지 않게 싱크에서 걸러요. 서버 기능(서비스 계정)도 빼요)
+const { onMessagePublished } = require('firebase-functions/v2/pubsub');
+const REL_KO = { spaces: '일지', private: '나만 보는 일지·개인 설정' };
+function adminPaths(entry) {
+  const s = JSON.stringify((entry && entry.protoPayload) || {});
+  const out = new Map(); // key 'spaces/SID' | 'private/UID' → 읽은 문서 경로 몇 개
+  const re = /documents\/(spaces|private)\/([A-Za-z0-9_-]{6,})((?:\/[^"\\\s]{1,200})?)/g; let m;
+  while ((m = re.exec(s))) { const k = m[1] + '/' + m[2]; if (!out.has(k)) out.set(k, new Set()); if (out.get(k).size < 8) out.get(k).add((m[3] || '').replace(/^\//, '') || '(일지 정보)'); }
+  return out;
+}
+const pathKo = (p) => { const a = p.split('/'); if (a[0] === 'days' && a[1]) return md(a[1]) + ' 기록'; if (a[0] === 'days') return '날짜별 기록'; if (a[0] === 'photos') return '사진'; if (a[0] === 'meta') return '설정'; if (a[0] === 'activity') return '수정 기록'; if (/^s_/.test(a[0])) return '나만 보는 일지'; if (a[0] === 'devices') return '알림 기기'; return p.split('/')[0]; };
+async function adminReadAlert(entry) {
+  const pp = (entry && entry.protoPayload) || {}, who = (pp.authenticationInfo && pp.authenticationInfo.principalEmail) || '';
+  if (!who || /gserviceaccount\.com$/.test(who)) return { skipped: 'no-user' };
+  const method = String(pp.methodName || '').split('.').pop(), at = Date.parse(entry.timestamp || '') || Date.now();
+  const paths = adminPaths(entry); if (!paths.size) return { skipped: 'no-diary-path' };
+  const done = [];
+  for (const [k, set] of paths) {
+    const [kind, id] = k.split('/'), what = [...set].map(pathKo).filter((x, i, a) => a.indexOf(x) === i).slice(0, 4).join(', ');
+    const logCol = kind === 'spaces' ? `adminReads/${id}/r` : `adminReadsP/${id}/r`;
+    await db.collection(logCol).add({ at, who, method, what, paths: [...set] });
+    // 같은 일지는 10분에 한 번만 알려요(관리 화면은 한 번 열 때 여러 번 읽어요)
+    const gate = db.doc(kind === 'spaces' ? `adminReads/${id}` : `adminReadsP/${id}`);
+    const g = await gate.get(); const last = g.exists ? +g.data().notifiedAt || 0 : 0;
+    if (Date.now() - last < 10 * 60e3) { done.push(k + ':logged'); continue; }
+    await gate.set({ notifiedAt: Date.now() }, { merge: true });
+    const title = '[생활일지] 관리자가 일지 자료를 열었어요';
+    const body = `${who} 계정이 서버 관리 화면에서 ${REL_KO[kind]}(${what})를 열었어요. 메뉴 → 관리자 열람 기록에서 볼 수 있어요.`;
+    let uids = [], ownerMail = '';
+    if (kind === 'spaces') {
+      const sp = await db.doc(`spaces/${id}`).get(); if (!sp.exists) { done.push(k + ':gone'); continue; }
+      const S = sp.data(); ownerMail = S.ownerEmail || Object.entries(S.roles || {}).find(([, r]) => r === 'owner')?.[0] || '';
+      const pr = await db.collection(`spaces/${id}/profiles`).get();
+      uids = pr.docs.filter((d) => (S.members || []).includes(d.data().email)).map((d) => d.id);
+    } else {
+      uids = [id];
+      const u = await db.doc(`usage/${id}`).get(); ownerMail = u.exists ? u.data().email || '' : '';
+    }
+    for (const u of uids) { try { await pushTo(u, { title, body, url: kind === 'spaces' ? lnk(id) + '&adminreads=1' : SITE + '?adminreads=1', tag: 'adminread-' + id }); } catch (e) { logger.warn('adminread push', u, e.message); } }
+    if (ownerMail) { try { const { from, t } = await mailer(); await t.sendMail({ from: `"생활일지 알림" <${from}>`, to: ownerMail, subject: title, text: body + `\n\n시각: ${new Date(at).toLocaleString('ko-KR', { timeZone: 'Asia/Seoul' })}\n방식: ${method}\n\n일지를 쓰는 사람의 내용 보호를 위해 자동으로 보내는 메일이에요.` }); } catch (e) { logger.warn('adminread mail', e.message); } }
+    done.push(k + ':notified');
+  }
+  return { done };
+}
+exports.adminReads = onMessagePublished({ topic: 'admin-reads', retry: false }, async (ev) => {
+  let entry = null; try { entry = ev.data.message.json; } catch (e) {}
+  if (!entry) { try { entry = JSON.parse(Buffer.from(ev.data.message.data, 'base64').toString()); } catch (e) { logger.warn('adminReads bad message'); return; } }
+  const r = await adminReadAlert(entry); logger.info('adminReads', r);
+});
+global.__adminReadAlert = adminReadAlert; // 시험용(배포 대상 아님)
