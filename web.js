@@ -615,6 +615,8 @@ const devOf = (ua) => {
   return `${os} · ${br}${app}`;
 };
 (async () => {
+  // 일지에 정해 둔 내 이름을 먼저 불러와서 남겨요(아직 안 불러왔으면 Google 계정 이름이 남던 문제)
+  try { const x = await getDoc(doc(fs, `spaces/${SID}/profiles/${U.uid}`)); if (x.exists() && x.data().name) W.profCache[U.uid] = { ...(W.profCache[U.uid] || {}), ...x.data() }; } catch (e) {}
   const k = 'diary.vlog.' + SID; let last = 0;
   try { last = +localStorage.getItem(k) || 0; } catch (e) {}
   if (Date.now() - last > 10 * 60e3) {
@@ -653,13 +655,16 @@ const devOf = (ua) => {
   const acct = $('wAcct');
   if (acct) acct.insertAdjacentHTML('afterbegin', `<button class="mrowbtn" id="wVlBtn" type="button"${isOwner() ? '' : ' hidden'}><span>접속 기록</span><span class="chev">›</span></button>`);
   const when = (t) => { const d = new Date(t), m = Math.round((Date.now() - t) / 60e3); return m < 1 ? '방금' : m < 60 ? `${m}분 전` : m < 1440 ? `${Math.round(m / 60)}시간 전` : d.toLocaleString('ko-KR', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' }); };
-  const who = (x) => esc(x.name ? `${x.name} (${x.email || ''})` : (x.email || x.by || ''));
+  // 이름은 일지에 지금 정해 둔 이름(프로필)으로 보여 줘요 — 기록에 남은 옛 이름(Google 계정 이름)보다 먼저
+  const pn = {};
+  const who = (x) => esc(pn[x.by] || x.name || x.email || x.by || '');
   async function openVl() {
     closeMenu(); say('wVlMsg', '불러오는 중…'); $('wVlPeople').innerHTML = ''; $('wVlList').innerHTML = ''; $('wVlCr').hidden = !CREATOR; open('wVlModal');
     try {
       const q = await getDocs(query(collection(fs, `vlog/${SID}/v`), orderBy('at', 'desc'), limit(200)));
       const L = q.docs.map((d) => d.data()), seen = new Map();
       for (const x of L) if (!seen.has(x.by)) seen.set(x.by, x);
+      await Promise.all([...seen.keys()].map(async (id) => { try { const p = await getDoc(doc(fs, `spaces/${SID}/profiles/${id}`)); if (p.exists() && p.data().name) pn[id] = p.data().name; } catch (e) {} }));
       $('wVlPeople').innerHTML = [...seen.values()].map((x) => `<div class="wvl"><b>${who(x)}</b><span>${esc(when(x.at))} · ${esc(x.ua || '')}</span></div>`).join('') || '<p class="note">아직 기록이 없어요.</p>';
       $('wVlList').innerHTML = L.slice(0, 60).map((x) => `<div class="wvl"><b>${who(x)}</b><span>${esc(when(x.at))} · ${esc(x.ua || '')}${x.b ? ' · v' + esc(x.b) : ''}</span></div>`).join('') || '<p class="note">아직 기록이 없어요.</p>';
       if (CREATOR) {
