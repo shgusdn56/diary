@@ -380,7 +380,7 @@ st3.textContent = `#mUpd.crrow::after, #mUpd.ownrow::after { display: none !impo
 .wcnt { margin-left: auto; font-size: 12px; } .wchev { width: 8px; height: 8px; border-right: 2px solid currentColor; border-bottom: 2px solid currentColor; transform: rotate(45deg); margin: 0 4px 3px 6px; transition: transform .15s; }
 .wrel[open] .wchev { transform: rotate(-135deg); margin-bottom: -3px; }
 .wtools { display: flex; justify-content: flex-end; gap: 6px; margin-top: -4px; } .wtools button { font: inherit; font-size: 12.5px; border: 0; background: none; color: var(--blue, #1f5bc4); padding: 4px 6px; cursor: pointer; }
-body:has(.modal.on) #testBadge { display: none !important; }`;
+body:has(.modal.on) #testBadge, body:has(#wDiag) #testBadge { display: none !important; }`;
 document.head.appendChild(st3);
 document.body.insertAdjacentHTML('beforeend', `
 <div class="modal" id="wUpdModal" role="dialog" aria-modal="true"><div class="sheet"><button class="wclose" type="button" aria-label="닫기">✕</button><h2 id="wUpdTitle">업데이트 내역</h2>
