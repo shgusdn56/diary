@@ -33,14 +33,14 @@ async function pushTo(uid, { title, body, url, tag }) {
     data: { title: String(title || '생활일지'), body: String(body || '').slice(0, 900), url: url || SITE, tag: tag || '' },
     webpush: { headers: { Urgency: 'high', TTL: '86400' } }
   });
-  let sent = 0;
+  let sent = 0; const errs = [];
   await Promise.all(r.responses.map(async (x, i) => {
     if (x.success) { sent++; return; }
-    const c = x.error && x.error.code;
+    const c = x.error && x.error.code; errs.push(`${c} ${(x.error && x.error.message || '').slice(0, 120)}`);
     logger.warn('push fail', uid, c);
     if (c === 'messaging/registration-token-not-registered' || c === 'messaging/invalid-registration-token' || c === 'messaging/invalid-argument') await toks[i][0].delete().catch(() => {});
   }));
-  return { sent, devices: toks.length };
+  return { sent, devices: toks.length, errs };
 }
 
 const journalName = async (sid) => { try { const s = await db.doc(`spaces/${sid}/meta/journal`).get(); const n = s.exists && s.data().name; return typeof n === 'string' && n.trim() ? n.trim() : '생활일지'; } catch (e) { return '생활일지'; } };
@@ -87,7 +87,7 @@ exports.dayAlert = onDocumentWritten('spaces/{sid}/days/{date}', async (ev) => {
   for (const n of ns.docs) {
     if (n.id === after.updatedBy) { D.push(`${n.id}: 고친 사람이라 건너뜀`); continue; }
     if (!(await isMember(sid, n.id, sp.data()))) { D.push(`${n.id}: 구성원 확인 실패(프로필 메일 없음?)`); continue; }
-    try { const r = await pushTo(n.id, { title: `[${jn}] 수정 알림`, body: body.slice(0, 600), url: lnk(sid), tag: `day-${sid}-${date}` }); D.push(`${n.id}: 보냄 ${r.sent}/${r.devices}`); } catch (e) { D.push(`${n.id}: 실패 ${e.message}`); logger.error('dayAlert', e); }
+    try { const r = await pushTo(n.id, { title: `[${jn}] 수정 알림`, body: body.slice(0, 600), url: lnk(sid), tag: `day-${sid}-${date}` }); D.push(`${n.id}: 보냄 ${r.sent}/${r.devices}` + (r.errs && r.errs.length ? ' · 오류: ' + r.errs.join(' / ') : '')); } catch (e) { D.push(`${n.id}: 실패 ${e.message}`); logger.error('dayAlert', e); }
   }
   D.push('알림 켠 사람 수: ' + ns.size);
   await dbg('수정 알림 ' + date, D);
