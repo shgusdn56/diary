@@ -316,10 +316,10 @@ function adminPaths(entry) {
   const s = JSON.stringify((entry && entry.protoPayload) || {});
   const out = new Map(); // key 'spaces/SID' | 'private/UID' → 읽은 문서 경로 몇 개
   const re = /documents\/(spaces|private)\/([A-Za-z0-9_-]{6,})((?:\/[^"\\\s]{1,200})?)/g; let m;
-  while ((m = re.exec(s))) { const k = m[1] + '/' + m[2]; if (!out.has(k)) out.set(k, new Set()); if (out.get(k).size < 8) out.get(k).add((m[3] || '').replace(/^\//, '') || '(일지 정보)'); }
+  while ((m = re.exec(s))) { const k = m[1] + '/' + m[2]; if (!out.has(k)) out.set(k, new Set()); if (out.get(k).size < 8) out.get(k).add((m[3] || '').replace(/^\//, '') || '(일지 자료)'); }
   return out;
 }
-const pathKo = (p) => { const a = p.split('/'); if (a[0] === 'days' && a[1]) return md(a[1]) + ' 기록'; if (a[0] === 'days') return '날짜별 기록'; if (a[0] === 'photos') return '사진'; if (a[0] === 'meta') return '설정'; if (a[0] === 'activity') return '수정 기록'; if (/^s_/.test(a[0])) return '나만 보는 일지'; if (a[0] === 'devices') return '알림 기기'; return p.split('/')[0]; };
+const pathKo = (p) => { if (p === '(일지 자료)') return '일지 자료'; const a = p.split('/'); if (a[0] === 'days' && a[1]) return md(a[1]) + ' 기록'; if (a[0] === 'days') return '날짜별 기록'; if (a[0] === 'photos') return '사진'; if (a[0] === 'meta') return '설정'; if (a[0] === 'activity') return '수정 기록'; if (/^s_/.test(a[0])) return '나만 보는 일지'; if (a[0] === 'devices') return '알림 기기'; return p.split('/')[0]; };
 async function adminReadAlert(entry) {
   const pp = (entry && entry.protoPayload) || {}, who = (pp.authenticationInfo && pp.authenticationInfo.principalEmail) || '';
   if (!who || /gserviceaccount\.com$/.test(who)) return { skipped: 'no-user' };
