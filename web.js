@@ -35,9 +35,9 @@ document.body.insertAdjacentHTML('beforeend', `
 <div class="modal" id="wShareModal" role="dialog" aria-modal="true"><div class="sheet"><button class="wclose" type="button" aria-label="닫기">✕</button><h2>공유</h2>
   <p class="note" id="wShareNote"></p>
   <div id="wMembers"></div>
-  <div class="wadd" id="wAdd"><input class="tin" id="wEmail" type="email" placeholder="초대할 Google 메일" autocomplete="off">
-    <select id="wRole"><option value="edit">함께 쓰기</option><option value="view">보기만</option></select></div>
-  <div class="actions"><button class="ghost" id="wShareNo">닫기</button><button class="go" id="wShareGo">초대</button></div><div class="msg" id="wShareMsg"></div></div></div>
+  <div class="wsh-in" id="wAdd"><input id="wEmail" type="email" inputmode="email" placeholder="초대할 Google 메일" autocomplete="off">
+    <select id="wRole" aria-label="권한"><option value="edit">함께 쓰기</option><option value="view">보기만</option></select><button type="button" class="wsh-add" id="wShareGo">초대</button></div>
+  <div class="actions"><button class="ghost" id="wShareNo">닫기</button></div><div class="msg" id="wShareMsg"></div></div></div>
 <div class="modal" id="wNameModal" role="dialog" aria-modal="true"><div class="sheet"><button class="wclose" type="button" aria-label="닫기">✕</button><h2>내 이름</h2>
   <p class="note">일지에서 '마지막 저장', 수정 기록 등에 보이는 이름이에요.</p>
   <div class="field"><label for="wName">이름</label><input class="tin" id="wName" maxlength="20" autocomplete="off"></div>
@@ -49,15 +49,41 @@ const closeMenu = () => { const m = $('menu'); if (m) m.classList.remove('on'); 
 function drawMembers() {
   const roles = space.roles || {}, own = isOwner();
   $('wShareNote').textContent = own ? '초대한 Google 메일만 이 일지를 열 수 있어요. 초대하면 그 메일로 들어오는 주소와 방법이 담긴 초대 메일이 가요(Google 계정으로 로그인해요).' : '이 일지를 함께 보는 사람이에요. 초대와 권한은 일지 주인만 바꿀 수 있어요.';
-  $('wAdd').hidden = !own; $('wShareGo').hidden = !own;
+  $('wAdd').hidden = !own;
   const list = (space.members || []).slice().sort((a, b) => (roles[a] === 'owner' ? -1 : roles[b] === 'owner' ? 1 : a.localeCompare(b)));
   $('wMembers').innerHTML = list.map((m) => {
-    const r = roles[m] || 'view', me = m === U.email;
-    const ctl = r === 'owner' || !own ? `<span class="wtag">${ROLE[r] || r}</span>` :
-      `<select data-m="${esc(m)}"><option value="edit"${r === 'edit' ? ' selected' : ''}>함께 쓰기</option><option value="view"${r === 'view' ? ' selected' : ''}>보기만</option></select><button class="wx" data-mail="${esc(m)}" type="button" title="초대 메일 다시 보내기">메일</button><button class="wx" data-x="${esc(m)}" type="button">빼기</button>`;
-    return `<div class="wrow"><span class="wm">${esc(m)}${me ? ' (나)' : ''}</span>${ctl}</div>`;
+    const r = roles[m] || 'view', me = m === U.email, nm = shNames[m] || '';
+    const ctl = r === 'owner' || !own ? `<span class="wsh-tag${r === 'owner' ? ' own' : ''}">${ROLE[r] || r}</span>` :
+      `<span class="c"><select data-m="${esc(m)}" aria-label="권한"><option value="edit"${r === 'edit' ? ' selected' : ''}>함께 쓰기</option><option value="view"${r === 'view' ? ' selected' : ''}>보기만</option></select><button data-mail="${esc(m)}" type="button" title="초대 메일 다시 보내기">✉ 메일</button><button data-x="${esc(m)}" type="button">빼기</button></span>`;
+    return `<div class="wsh-row${r === 'owner' || !own ? '' : ' ctl'}"><span class="m">${nm ? `<b>${esc(nm)}${me ? ' <i>나</i>' : ''}</b>${esc(m)}` : `<b class="e">${esc(m)}${me ? ' <i>나</i>' : ''}</b>`}</span>${ctl}</div>`;
   }).join('');
 }
+// 공유 창의 이름: 각자 일지에서 정한 이름(프로필)을 메일 옆에 보여 줘요(아직 들어오지 않은 분은 메일만)
+let shNames = {};
+async function loadShNames() {
+  try { const q = await getDocs(collection(fs, `spaces/${SID}/profiles`)); const o = {}; q.docs.forEach((d) => { const x = d.data(); if (x.email && x.name) o[String(x.email).toLowerCase()] = x.name; }); shNames = o; if ($('wShareModal').classList.contains('on')) drawMembers(); } catch (e) {}
+}
+{ const st = document.createElement('style'); st.textContent = `
+#wShareModal .wsh-row { display: flex; flex-wrap: wrap; justify-content: flex-end; align-items: center; gap: 6px; padding: 10px 2px; border-bottom: 1px solid var(--line, #e3e7ee); }
+#wShareModal .wsh-row.ctl .m { flex-basis: 100%; }
+#wShareModal .wsh-row .c { display: flex; gap: 6px; }
+#wShareModal .wsh-row .m { flex: 1 1 0; min-width: 0; word-break: break-all; font-size: 13px; color: var(--mute, #6b7385); line-height: 1.4; }
+#wShareModal .wsh-row .m b { display: block; font-size: 15px; color: var(--ink, #1f2329); }
+#wShareModal .wsh-row .m b.e { font-size: 14.5px; font-weight: 600; }
+#wShareModal .wsh-row .m i { font-style: normal; font-size: 11px; font-weight: 700; color: var(--blue, #1f5bc4); background: var(--blue-l, #e8f0fe); border-radius: 8px; padding: 1px 6px; margin-left: 4px; vertical-align: 1px; }
+#wShareModal .wsh-row button, #wShareModal .wsh-row select { border: 1px solid var(--line, #d9e1ee); background: var(--kf3f6fb, #f3f6fb); color: var(--ink, #1f2329); border-radius: 999px; padding: 5px 12px; font: inherit; font-size: 13px; font-weight: 600; cursor: pointer; height: 32px; }
+#wShareModal .wsh-row select { padding: 0 8px; background: var(--kffffff, #fff); }
+#wShareModal .wsh-row button[data-mail] { color: var(--blue, #1f5bc4); background: var(--blue-l, #e8f0fe); border-color: transparent; }
+#wShareModal .wsh-row button[data-x] { color: #d93025; background: transparent; }
+#wShareModal .wsh-tag { font-size: 12.5px; font-weight: 700; color: var(--mute, #6b7385); background: var(--kf3f6fb, #f3f6fb); border-radius: 999px; padding: 4px 11px; }
+#wShareModal .wsh-tag.own { color: var(--blue, #1f5bc4); background: var(--blue-l, #e8f0fe); }
+#wShareModal .wsh-in { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin-top: 12px; }
+#wShareModal .wsh-in[hidden] { display: none; }
+#wShareModal .wsh-in input { flex: 1 1 100%; min-width: 0; height: 42px; border: 1px solid var(--line, #d9e1ee); border-radius: 12px; padding: 0 14px; font: inherit; font-size: 15px; background: var(--kffffff, #fff); color: inherit; }
+#wShareModal .wsh-in input:focus { outline: none; border-color: var(--blue, #1f5bc4); box-shadow: 0 0 0 3px var(--blue-l, #e8f0fe); }
+#wShareModal .wsh-in select { flex: 1 1 auto; height: 42px; border: 1px solid var(--line, #d9e1ee); border-radius: 12px; padding: 0 8px; font: inherit; font-size: 14px; background: var(--kffffff, #fff); color: inherit; }
+#wShareModal .wsh-add { height: 42px; padding: 0 18px; border: 0; border-radius: 12px; background: var(--blue, #1f5bc4); color: #fff; font: inherit; font-weight: 700; font-size: 15px; cursor: pointer; }
+#wShareModal .wsh-row button:active, #wShareModal .wsh-add:active { filter: brightness(.94); }`; document.head.appendChild(st); }
 // 알림·PDF 창에서는 결과 글을 누른 단추 바로 옆(그 칸 안)에 보여 줘요 — 맨 아래까지 내려 보지 않아도 되게
 let lastBtn = null;
 const say = (id, t, bad) => {
@@ -78,8 +104,9 @@ $('wMembers').addEventListener('change', async (e) => {
   try { await updateDoc(ref(), new FieldPath('roles', m), e.target.value); say('wShareMsg', '바꿨어요. 다음에 열 때부터 적용돼요.'); } catch (er) { say('wShareMsg', '바꾸지 못했어요: ' + (er.code || er.message), true); }
 });
 $('wMembers').addEventListener('click', async (e) => {
-  const mm = e.target.dataset && e.target.dataset.mail; if (mm) { job('invite', { sid: SID, to: mm }, 'wShareMsg'); return; }
-  const m = e.target.dataset && e.target.dataset.x; if (!m) return;
+  const bt = e.target.closest && e.target.closest('button'); if (!bt) return;
+  const mm = bt.dataset.mail; if (mm) { say('wShareMsg', '초대 메일을 다시 보내는 중…'); job('invite', { sid: SID, to: mm }, 'wShareMsg'); return; }
+  const m = bt.dataset.x; if (!m) return;
   try { await updateDoc(ref(), 'members', arrayRemove(m), new FieldPath('roles', m), deleteField()); say('wShareMsg', `${m} 님을 뺐어요.`); } catch (er) { say('wShareMsg', '빼지 못했어요: ' + (er.code || er.message), true); }
 });
 $('wShareGo').addEventListener('click', async () => {
@@ -91,7 +118,7 @@ $('wShareGo').addEventListener('click', async () => {
 });
 $('wShareNo').addEventListener('click', () => close('wShareModal'));
 // 원래 '공유' 단추(Claude 공유·서식 파일)는 새 공유 창으로 바꿔 끼워요
-const sh = $('mShare'); if (sh) { const n = sh.cloneNode(true); sh.replaceWith(n); n.addEventListener('click', () => { closeMenu(); say('wShareMsg', ''); drawMembers(); open('wShareModal'); }); }
+const sh = $('mShare'); if (sh) { const n = sh.cloneNode(true); sh.replaceWith(n); n.addEventListener('click', () => { closeMenu(); say('wShareMsg', ''); drawMembers(); open('wShareModal'); loadShNames(); }); }
 
 // ── 내 이름
 $('wNameNo').addEventListener('click', () => close('wNameModal'));
@@ -637,13 +664,26 @@ if (CREATOR) {
 
 // ── 기능 설명서 창 맨 위: 사용설명서 PDF 받기 (사이트의 guide.pdf — 설명서를 고칠 때 GUIDE_V도 같이 올려요)
 {
-  const GUIDE_V = 'v9', nav = $('gdNav');
+  const GUIDE_V = 'v10', nav = $('gdNav');
   if (nav) {
     const url = new URL((window.__WEBJS ? '../' : './') + 'guide.pdf?v=' + GUIDE_V, location.href).href;
-    nav.insertAdjacentHTML('beforebegin', `<a class="wgpdf" href="${url}" download="생활일지-사용설명서-${GUIDE_V}.pdf" target="_blank" rel="noopener">📄 사용설명서 PDF 받기 <span>${GUIDE_V}</span></a>`);
+    const fname = `생활일지-사용설명서-${GUIDE_V}.pdf`;
+    nav.insertAdjacentHTML('beforebegin', `<div class="wgpdfs"><a class="wgpdf" href="${url}" download="${fname}" target="_blank" rel="noopener">📄 PDF 받기 <span>${GUIDE_V}</span></a><button type="button" class="wgpdf" id="wGdShare">📤 카톡 등으로 보내기</button></div>`);
+    // 보내기: 휴대폰·PC의 '공유' 창을 띄워 PDF 파일을 바로 보내요(카톡·문자·메일 등). 파일 공유가 안 되는 브라우저는 링크를 보내거나 복사해요
+    $('wGdShare').addEventListener('click', async () => {
+      const b = $('wGdShare'), t0 = b.textContent; b.disabled = true; b.textContent = '준비하는 중…';
+      try {
+        const f = new File([await (await fetch(url)).blob()], fname, { type: 'application/pdf' });
+        if (navigator.canShare && navigator.canShare({ files: [f] })) await navigator.share({ files: [f], title: '생활일지 사용설명서', text: '생활일지 사용설명서예요.' });
+        else if (navigator.share) await navigator.share({ title: '생활일지 사용설명서', text: '생활일지 사용설명서예요.', url });
+        else { await navigator.clipboard.writeText(url); alert('이 브라우저는 바로 보내기가 안 돼서 PDF 주소를 복사했어요. 카톡 대화창에 붙여 넣어 보내세요.'); }
+      } catch (e) { if (!(e && e.name === 'AbortError')) { try { await navigator.clipboard.writeText(url); alert('바로 보내기가 안 돼서 PDF 주소를 복사했어요. 카톡 대화창에 붙여 넣어 보내세요.'); } catch (e2) {} } }
+      b.disabled = false; b.textContent = t0;
+    });
     const st = document.createElement('style');
-    st.textContent = `.wgpdf { display: flex; align-items: center; gap: 6px; margin: 2px 0 8px; padding: 9px 14px; border-radius: 12px; background: var(--blue-l, #e8f0fe); color: var(--blue, #1f5bc4); font-weight: 700; font-size: 14px; text-decoration: none; }
-.wgpdf span { margin-left: auto; font-size: 12px; font-weight: 600; opacity: .7; } .wgpdf:active { filter: brightness(.95); }`;
+    st.textContent = `.wgpdfs { display: flex; gap: 8px; margin: 2px 0 8px; } .wgpdfs .wgpdf { flex: 1; margin: 0; border: 0; font-family: inherit; cursor: pointer; justify-content: center; }
+.wgpdf { display: flex; align-items: center; gap: 6px; margin: 2px 0 8px; padding: 9px 14px; border-radius: 12px; background: var(--blue-l, #e8f0fe); color: var(--blue, #1f5bc4); font-weight: 700; font-size: 14px; text-decoration: none; }
+.wgpdf span { margin-left: 2px; font-size: 12px; font-weight: 600; opacity: .7; } .wgpdf:active { filter: brightness(.95); }`;
     document.head.appendChild(st);
   }
 }
