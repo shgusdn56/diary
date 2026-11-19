@@ -24,7 +24,7 @@ const SITE = 'https://shgusdn56.github.io/diary/';
 const BROADCASTS = {
   'noti1': { title: '[생활일지] 휴대폰 알림 설정을 확인해 주세요', body: '앱으로 설치했다면 휴대폰 설정 → 애플리케이션 → 생활일지 → 알림이 \'허용\'인지 확인해 주세요. 처음엔 차단돼 있기도 해서 일지 알림이 안 올 수 있어요.' }
 };
-const GUIDE_VER = 'v11'; // functions/assets/guide.pdf 를 바꿀 때 함께 올려요(안내 메일 첨부 파일 이름)
+const GUIDE_VER = 'v12'; // functions/assets/guide.pdf 를 바꿀 때 함께 올려요(안내 메일 첨부 파일 이름)
 const WDK = '일월화수목금토';
 const lnk = (sid) => `${SITE}?s=${encodeURIComponent(sid)}`;
 
