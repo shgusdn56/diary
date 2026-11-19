@@ -1,0 +1,18 @@
+plugins { id 'com.android.application' }
+// 서명 정보는 저장소에 올리지 않아요: android/keystore.properties (로컬에만 있음)
+def ks = new Properties(); def ksf = rootProject.file('keystore.properties'); if (ksf.exists()) ks.load(new FileInputStream(ksf))
+android {
+  namespace 'io.github.shgusdn56.diary'
+  compileSdk 36
+  defaultConfig {
+    applicationId 'io.github.shgusdn56.diary'
+    minSdk 24
+    targetSdk 36
+    versionCode 1
+    versionName '1.0'
+  }
+  signingConfigs { release { if (ksf.exists()) { storeFile rootProject.file(ks['storeFile']); storePassword ks['storePassword']; keyAlias ks['keyAlias']; keyPassword ks['keyPassword'] } } }
+  buildTypes { release { minifyEnabled false; signingConfig signingConfigs.release } }
+  compileOptions { sourceCompatibility JavaVersion.VERSION_17; targetCompatibility JavaVersion.VERSION_17 }
+}
+dependencies { implementation 'com.google.androidbrowserhelper:androidbrowserhelper:2.7.4' }
