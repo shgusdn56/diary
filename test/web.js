@@ -664,7 +664,7 @@ if (CREATOR) {
 
 // ── 기능 설명서 창 맨 위: 사용설명서 PDF 받기 (사이트의 guide.pdf — 설명서를 고칠 때 GUIDE_V도 같이 올려요)
 {
-  const GUIDE_V = 'v9', nav = $('gdNav');
+  const GUIDE_V = 'v10', nav = $('gdNav');
   if (nav) {
     const url = new URL((window.__WEBJS ? '../' : './') + 'guide.pdf?v=' + GUIDE_V, location.href).href;
     const fname = `생활일지-사용설명서-${GUIDE_V}.pdf`;
