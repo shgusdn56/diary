@@ -8,7 +8,7 @@ set -euo pipefail
 ROOT=$(git rev-parse --show-toplevel); cd "$ROOT"
 OUT=$(mktemp -d); WT=$(mktemp -d)
 python3 tools/build.py src/app.html "$OUT/index.html" >/dev/null
-cp web.js sw.js manifest.webmanifest icon-192.png icon-512.png diag.html "$OUT/"
+cp web.js sw.js manifest.webmanifest icon-192.png icon-512.png dog-48.png dog-192.png dog-512.png diag.html "$OUT/"
 # 시험판에서 '앱 설치'를 눌러도 원래 주소(../)가 설치되게: 시험판 앱이 따로 생기면 사용자가 모르고 시험판을 쓰게 돼요
 python3 - "$OUT/manifest.webmanifest" <<'PY'
 import json, sys

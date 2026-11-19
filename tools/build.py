@@ -43,7 +43,8 @@ head_add = '''<script>
 <link rel="modulepreload" href="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js">
 <link rel="manifest" href="manifest.webmanifest">
 <meta name="theme-color" content="#1f5bc4">
-<link rel="icon" href="icon-192.png">
+<link rel="icon" href="dog-48.png" sizes="48x48">
+<link rel="icon" href="dog-192.png" sizes="192x192">
 <link rel="apple-touch-icon" href="icon-192.png">
 <style>
 #gate { position: fixed; inset: 0; z-index: 2147483000; display: grid; place-items: center; background: var(--kf5f7fa, #f5f7fa); padding: 24px 16px; font-family: system-ui, -apple-system, "Apple SD Gothic Neo", "Noto Sans KR", sans-serif; }
