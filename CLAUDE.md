@@ -13,6 +13,7 @@
   - main에 올리면 `.github/workflows/firebase-deploy.yml`이 Firebase에 자동으로 올려요. 처음 한 번 `tools/setup-cloud.sh`를 Cloud Shell에서 실행해야 해요.
   - 시험: 에뮬레이터(`firebase emulators:exec --only firestore`)에서 FCM·메일만 가짜로 바꿔 돌려 볼 수 있어요.
 - 시험판: 화면을 고치면 먼저 `tools/push-test.sh`로 https://shgusdn56.github.io/diary/test/ 에만 올려 사용자 확인을 받고, 사용자가 시험판의 '원래 일지에 업데이트' 단추를 누르거나 "업데이트"라고 하면 원래 일지에 반영해요.
+- 사용설명서 PDF를 새로 만들면 세 곳을 같이 바꿔요: 사이트의 `guide.pdf`(설명서 창 'PDF 받기'), `functions/assets/guide.pdf`(초대·새 일지 안내 메일 첨부), 버전 글자 `web.js`의 `GUIDE_V`와 `functions/index.js`의 `GUIDE_VER`.
   - 사용자에게 말할 때는 '올리기' 대신 **'업데이트'**라고 해요(예: "괜찮으면 업데이트 단추를 눌러 주세요").
   - 시험판은 진짜 일지 데이터와 로그인 연결(shim.js)을 같이 써요. shim.js·functions·보안 규칙은 시험판이 없어요.
 - 디자인·기능은 기존과 같은 모양을 유지하고, 제작자 전용 기능은 '노현우님 전용'으로 표시해요.
