@@ -578,9 +578,20 @@ if (CREATOR) {
   document.body.insertAdjacentHTML('beforeend', `
 <div class="modal" id="wAlwModal" role="dialog" aria-modal="true"><div class="sheet"><button class="wclose" type="button" aria-label="닫기">✕</button><h2>새 일지 허락 ${crTag()}</h2>
   <p class="note">서식을 받아 쓰던 분처럼 <b>자기 일지를 새로 만들 분</b>의 Google 메일을 넣어 주세요. 넣으면 그분께 주소·여는 법·사용설명서(PDF)가 담긴 안내 메일이 자동으로 가요('메일'로 다시 보낼 수 있어요). 그분이 로그인하면 빈 일지가 새로 생기고, 처음에 자기 비밀번호를 정해요. 이 일지와는 따로예요(같이 쓰는 분은 여기 말고 '공유'에서 초대해요).</p>
-  <div class="aur" style="display:flex;gap:6px"><input class="tin" id="wAlwIn" type="email" inputmode="email" placeholder="Google 메일 주소" autocomplete="off" style="flex:1"><button type="button" class="go" id="wAlwAdd">넣기</button></div>
+  <div class="wal-in"><input id="wAlwIn" type="email" inputmode="email" placeholder="Google 메일 주소" autocomplete="off"><button type="button" class="wal-add" id="wAlwAdd">넣기</button></div>
   <div id="wAlwList" style="margin-top:10px"></div>
   <div class="actions"><button class="ghost" id="wAlwNo">닫기</button></div><div class="msg" id="wAlwMsg"></div></div></div>`);
+  { const st = document.createElement('style'); st.textContent = `
+#wAlwModal .wal-in { display: flex; gap: 8px; align-items: center; }
+#wAlwModal .wal-in input { flex: 1; min-width: 0; height: 42px; border: 1px solid var(--line, #d9e1ee); border-radius: 12px; padding: 0 14px; font: inherit; font-size: 15px; background: var(--kffffff, #fff); color: inherit; }
+#wAlwModal .wal-in input:focus { outline: none; border-color: var(--blue, #1f5bc4); box-shadow: 0 0 0 3px var(--blue-l, #e8f0fe); }
+#wAlwModal .wal-add { height: 42px; padding: 0 18px; border: 0; border-radius: 12px; background: var(--blue, #1f5bc4); color: #fff; font: inherit; font-weight: 700; font-size: 15px; cursor: pointer; }
+#wAlwModal .wal-row { display: flex; align-items: center; gap: 6px; padding: 9px 2px; border-bottom: 1px solid var(--line, #e3e7ee); }
+#wAlwModal .wal-row .m { flex: 1; min-width: 0; word-break: break-all; font-size: 14.5px; }
+#wAlwModal .wal-row button { border: 1px solid var(--line, #d9e1ee); background: var(--kf3f6fb, #f3f6fb); color: var(--ink, #1f2329); border-radius: 999px; padding: 5px 13px; font: inherit; font-size: 13px; font-weight: 600; cursor: pointer; }
+#wAlwModal .wal-row button[data-mail] { color: var(--blue, #1f5bc4); background: var(--blue-l, #e8f0fe); border-color: transparent; }
+#wAlwModal .wal-row button[data-del] { color: #d93025; background: transparent; }
+#wAlwModal .wal-row button:active { filter: brightness(.94); }`; document.head.appendChild(st); }
   $('wAlwNo').addEventListener('click', () => close('wAlwModal'));
   const acct = $('wAcct');
   if (acct) acct.insertAdjacentHTML('afterbegin', `<button class="mrowbtn" id="wAlwBtn" type="button"><span>새 일지 허락</span><span class="mval" id="wAlwN"></span><span class="chev">›</span></button>`);
@@ -588,7 +599,7 @@ if (CREATOR) {
   let emails = [];
   const draw = () => {
     $('wAlwN').textContent = emails.length ? emails.length + '명' : '';
-    $('wAlwList').innerHTML = emails.length ? emails.map((m) => `<div style="display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid var(--line,#e3e7ee)"><span style="flex:1;word-break:break-all">${esc(m)}</span><button type="button" class="ghost" data-mail="${esc(m)}" style="padding:4px 10px">메일</button><button type="button" class="ghost" data-del="${esc(m)}" style="padding:4px 10px">빼기</button></div>`).join('') : '<p class="note">아직 없어요.</p>';
+    $('wAlwList').innerHTML = emails.length ? emails.map((m) => `<div class="wal-row"><span class="m">${esc(m)}</span><button type="button" data-mail="${esc(m)}">✉ 메일</button><button type="button" data-del="${esc(m)}">빼기</button></div>`).join('') : '<p class="note">아직 없어요.</p>';
   };
   onSnapshot(aref, (s) => { emails = (s.exists() && Array.isArray(s.data().emails)) ? s.data().emails : []; draw(); }, () => {});
   $('wAlwBtn').addEventListener('click', () => { closeMenu(); say('wAlwMsg', ''); draw(); open('wAlwModal'); });
