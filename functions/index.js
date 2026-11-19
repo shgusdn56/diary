@@ -20,6 +20,10 @@ const db = getFirestore();
 setGlobalOptions({ region: process.env.FN_REGION || 'asia-northeast3', maxInstances: 2 });
 
 const SITE = 'https://shgusdn56.github.io/diary/';
+// 전체 알림 안내 문구(한 번씩만 보내요)
+const BROADCASTS = {
+  'noti1': { title: '[생활일지] 휴대폰 알림 설정을 확인해 주세요', body: '앱으로 설치했다면 휴대폰 설정 → 애플리케이션 → 생활일지 → 알림이 \'허용\'인지 확인해 주세요. 처음엔 차단돼 있기도 해서 일지 알림이 안 올 수 있어요.' }
+};
 const GUIDE_VER = 'v11'; // functions/assets/guide.pdf 를 바꿀 때 함께 올려요(안내 메일 첨부 파일 이름)
 const WDK = '일월화수목금토';
 const lnk = (sid) => `${SITE}?s=${encodeURIComponent(sid)}`;
@@ -308,6 +312,15 @@ exports.runJob = onDocumentCreated({ document: 'jobs/{jid}', memory: '2GiB', tim
           `자세한 사용법은 붙여 드린 '생활일지 사용설명서'(PDF)를 봐 주세요.`,
         attachments: fs.existsSync(pdf) ? [{ filename: `생활일지-사용설명서-${GUIDE_VER}.pdf`, path: pdf, contentType: 'application/pdf' }] : [] });
       await done({ msg: `${to}로 안내 메일(사용설명서 첨부)을 보냈어요.` });
+    } else if (j.kind === 'broadcast') {
+      // 전체 알림(1회): 제작자만. 알림을 받는 모든 기기에 같은 안내를 보내요(같은 안내는 한 번만)
+      const cr = await db.doc('config/creator').get(); if (!cr.exists || cr.data().uid !== j.by) throw new Error('제작자만 보낼 수 있어요');
+      const M = BROADCASTS[j.to]; if (!M) throw new Error('없는 안내예요');
+      const mark = db.doc(`config/bc_${j.to}`); if ((await mark.get()).exists) { await done({ msg: '이미 보낸 안내예요' }); return; }
+      await mark.set({ at: Date.now(), by: j.by });
+      const ds = await db.collectionGroup('devices').get(); const uids = [...new Set(ds.docs.map((d) => d.ref.parent.parent && d.ref.parent.parent.id).filter(Boolean))];
+      let sent = 0, dev = 0; for (const u of uids) { try { const r = await pushTo(u, { title: M.title, body: M.body, url: SITE, tag: 'bc-' + j.to }); sent += r.sent; dev += r.devices; } catch (e) { logger.warn('bc', u, e.message); } }
+      await done({ msg: `${uids.length}명(기기 ${dev}대 중 ${sent}대)에게 보냈어요` });
     } else if (j.kind === 'release') {
       // 시험판(test/)을 원래 주소에 올리기: GitHub의 '시험판 올리기' 작업을 시작시켜요(열쇠는 secret/github, 제작자만 저장)
       const g = await db.doc('secret/github').get(), tok = g.exists && g.data().token;

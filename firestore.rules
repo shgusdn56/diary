@@ -40,7 +40,7 @@ service cloud.firestore {
         && ((request.resource.data.kind in ['test-edit', 'test-morning'] && role(request.resource.data.sid) != '')
           || (request.resource.data.kind == 'pdf' && request.resource.data.test == true && space(request.resource.data.sid).owner == request.auth.uid)
           || (request.resource.data.kind == 'invite' && space(request.resource.data.sid).owner == request.auth.uid && request.resource.data.to in space(request.resource.data.sid).members)
-          || (request.resource.data.kind in ['holidays', 'release'] && isCreator())
+          || (request.resource.data.kind in ['holidays', 'release', 'broadcast'] && isCreator())
           || (request.resource.data.kind == 'allow-invite' && isCreator() && request.resource.data.to in get(/databases/$(database)/documents/config/allow).data.emails));
     }
     // 들어온 기록: 구성원이 일지를 열 때 자기 것만 남기고, 읽기는 그 일지의 주인만(90일 지나면 서버가 지워요)
