@@ -194,7 +194,8 @@ $('wImpFile').addEventListener('change', async (e) => {
 const CREATOR = !!W.creator;
 const crTag = () => '<em class="otag">노현우님 전용</em>';
 const st2 = document.createElement('style');
-st2.textContent = `#wNotiModal .aubox .aur, #wPdfModal .aubox .aur { margin-top: 6px; }
+st2.textContent = `.wapn { margin-top: 8px; font-size: 12.5px; color: var(--mute, #6b7385); line-height: 1.6; } .wapn summary { cursor: pointer; font-weight: 700; color: var(--blue, #1f5bc4); list-style: none; } .wapn summary::-webkit-details-marker { display: none; } .wapn summary::before { content: '▸ '; } .wapn[open] summary::before { content: '▾ '; } .wapn p { margin: 6px 0 0; } .wapn b { color: var(--ink, #1f2329); }
+#wNotiModal .aubox .aur, #wPdfModal .aubox .aur { margin-top: 6px; }
 #wNotiModal .aur input[type=time], #wPdfModal .aur input[type=time], #wPdfModal .aur select { font: inherit; font-size: 14px; height: 34px; padding: 0 8px; border-radius: 10px; border: 1px solid var(--k9fb2d4, #c9d3e6); background: transparent; color: inherit; }
 #wNotiModal .aur .autest, #wPdfModal .aur .autest { margin-left: 0; }
 #wPdfModal .aur input.tin { flex: 1 1 100%; }
@@ -209,7 +210,12 @@ document.body.insertAdjacentHTML('beforeend', `
 <div class="modal" id="wNotiModal" role="dialog" aria-modal="true"><div class="sheet"><button class="wclose" type="button" aria-label="닫기">✕</button><h2>휴대폰 알림</h2>
   <p class="note">알림은 이 일지를 연 휴대폰·컴퓨터로 와요. 알림을 받을 기기마다 한 번씩 '이 기기에서 알림 받기'를 켜 주세요.</p>
   <div class="aubox"><div class="auh"><b>이 기기에서 알림 받기</b>${sw('wDevSw', '이 기기에서 알림 받기')}</div>
-    <p class="wstat" id="wDevNote"></p></div>
+    <p class="wstat" id="wDevNote"></p>
+    <details class="wapn"><summary>알림이 안 오면 · 휴대폰 설정 확인</summary>
+      <p>앱으로 설치한 생활일지는 <b>휴대폰이 알림을 '차단됨'으로 시작</b>하는 경우가 있어요. 그러면 여기서 켜고 '테스트'가 1/1로 나와도 알림이 화면에 안 떠요.</p>
+      <p><b>갤럭시:</b> 설정 → 애플리케이션 → <b>생활일지</b> → 알림 → <b>허용</b>으로 바꿔 주세요(홈 화면의 생활일지 아이콘을 길게 눌러 ⓘ 앱 정보 → 알림으로도 갈 수 있어요).</p>
+      <p><b>브라우저로 쓸 때:</b> 설정 → 애플리케이션 → <b>삼성 인터넷(또는 Chrome)</b> → 알림이 허용인지, 브라우저의 사이트 알림에서 이 사이트가 허용인지 확인해 주세요.</p>
+      <p><b>아이폰:</b> 설정 → 알림 → <b>생활일지</b> → 알림 허용.</p></details></div>
   <div class="aubox"><div class="auh"><b>수정 알림</b>${sw('wEditSw', '수정 알림')}</div>
     <p>다른 사람이 일지를 고치면 바로 알려 줘요(고친 사람이 칸을 빠져나갈 때). 내가 고친 건 알리지 않아요.</p>
     <div class="aur"><button type="button" class="autest" id="wEditTest">테스트</button></div></div>
@@ -302,7 +308,7 @@ async function registerDevice(ask, fresh) {
 const devErr = (e) => ({
   IOS: 'iPhone·iPad는 Safari에서 공유 버튼 → \'홈 화면에 추가\'를 한 뒤, 홈 화면의 생활일지 아이콘으로 열어야 알림을 받을 수 있어요(iOS 16.4 이상).',
   NOSUP: '이 브라우저는 알림을 지원하지 않아요. 휴대폰은 Chrome(안드로이드)이나 홈 화면에 추가한 앱으로 열어 주세요.',
-  DENIED: '알림이 차단돼 있어요. 브라우저(또는 휴대폰 설정)의 사이트 알림에서 이 사이트를 \'허용\'으로 바꿔 주세요.',
+  DENIED: '알림이 차단돼 있어요. 휴대폰 설정 → 애플리케이션 → 생활일지(브라우저로 쓰면 삼성 인터넷·Chrome) → 알림을 \'허용\'으로 바꾸고, 브라우저의 사이트 알림도 허용으로 바꿔 주세요.',
   NOPERM: '알림 허용을 눌러야 받을 수 있어요.',
   NOTOKEN: '알림 등록 번호를 받지 못했어요. 잠시 뒤 다시 해 주세요.'
 }[e && e.message] || ('알림을 켜지 못했어요: ' + ((e && (e.code || e.message)) || e)));
@@ -322,7 +328,7 @@ $('wDevSw').addEventListener('click', async () => {
     drawDev(); say('wNotiMsg', '이 기기 알림을 껐어요.'); return;
   }
   say('wNotiMsg', '알림을 켜는 중…');
-  try { await registerDevice(true, true); drawDev(); say('wNotiMsg', '이 기기에서 알림을 받아요. 아래 \'테스트\'로 확인해 보세요.'); }
+  try { await registerDevice(true, true); drawDev(); say('wNotiMsg', '이 기기에서 알림을 받아요. 아래 \'테스트\'로 확인해 보세요. 테스트 알림이 안 뜨면 위 \'알림이 안 오면\'을 눌러 휴대폰 설정을 확인해 주세요.'); }
   catch (e) { console.warn('[push]', e); drawDev(); const n = $('wDevNote'); n.className = 'wstat bad'; n.textContent = devErr(e); say('wNotiMsg', ''); }
 });
 // 열 때마다 조용히 등록 번호를 새로 맞춰요(바뀌면 저장)
@@ -545,7 +551,7 @@ async function welcome(oldUser) {
     try {
       await registerDevice(true, true); drawDev();
       await setDoc(nref(), { on: true, mOn: true, mAt: '07:20', mAtSet: '07:20', name: myName(), updatedAt: Date.now() }, { merge: true });
-      m.className = 'wstat ok'; m.textContent = '켰어요. 이 휴대폰으로 알림이 와요. 시각은 메뉴 → 휴대폰 알림에서 바꿀 수 있어요.'; b.textContent = '켜짐';
+      m.className = 'wstat ok'; m.textContent = '켰어요. 앱으로 설치했다면 휴대폰 설정 → 애플리케이션 → 생활일지 → 알림이 \'허용\'인지도 꼭 확인해 주세요(처음엔 차단돼 있기도 해요). 시각은 메뉴 → 휴대폰 알림에서 바꿀 수 있어요.'; b.textContent = '켜짐';
     } catch (e) { b.disabled = false; m.className = 'wstat bad'; m.textContent = devErr(e); }
   });
   // 비밀번호 화면이 끝나고 다른 창이 없을 때 띄워요
@@ -664,7 +670,7 @@ if (CREATOR) {
 
 // ── 기능 설명서 창 맨 위: 사용설명서 PDF 받기 (사이트의 guide.pdf — 설명서를 고칠 때 GUIDE_V도 같이 올려요)
 {
-  const GUIDE_V = 'v10', nav = $('gdNav');
+  const GUIDE_V = 'v11', nav = $('gdNav');
   if (nav) {
     const url = new URL((window.__WEBJS ? '../' : './') + 'guide.pdf?v=' + GUIDE_V, location.href).href;
     const fname = `생활일지-사용설명서-${GUIDE_V}.pdf`;
@@ -685,6 +691,37 @@ if (CREATOR) {
 .wgpdf { display: flex; align-items: center; gap: 6px; margin: 2px 0 8px; padding: 9px 14px; border-radius: 12px; background: var(--blue-l, #e8f0fe); color: var(--blue, #1f5bc4); font-weight: 700; font-size: 14px; text-decoration: none; }
 .wgpdf span { margin-left: 2px; font-size: 12px; font-weight: 600; opacity: .7; } .wgpdf:active { filter: brightness(.95); }`;
     document.head.appendChild(st);
+  }
+}
+
+// ── 위쪽 머리 영역(제목·달 탭)을 잡고 아래로 끌면 새로고침 (손가락으로만, 쓰던 글은 먼저 저장)
+{
+  const top = document.querySelector('.top');
+  if (top) {
+    const ind = document.createElement('div'); ind.id = 'wPull'; ind.innerHTML = '<span class="ic">↻</span><span class="tx">당겨서 새로고침</span>';
+    document.body.appendChild(ind);
+    const st = document.createElement('style');
+    st.textContent = `#wPull { position: fixed; left: 50%; top: 0; z-index: 2147483002; transform: translate(-50%, -60px); display: flex; align-items: center; gap: 8px; padding: 8px 14px; border-radius: 999px; background: var(--kffffff, #fff); color: var(--blue, #1f5bc4); font: 700 13px system-ui, sans-serif; box-shadow: 0 4px 14px rgba(20,30,50,.18); pointer-events: none; opacity: 0; }
+#wPull .ic { display: inline-block; font-size: 17px; line-height: 1; } #wPull.ready { background: var(--blue, #1f5bc4); color: #fff; } #wPull.go .ic { animation: wpullspin .8s linear infinite; }
+@keyframes wpullspin { to { transform: rotate(360deg); } }`;
+    document.head.appendChild(st);
+    const TH = 80; let p0 = null, dy = 0, pulling = false;
+    const show = (d) => { const k = Math.min(1, d / TH); ind.style.opacity = String(k); ind.style.transform = `translate(-50%, ${Math.min(d, TH * 1.3) - 40}px)`; ind.querySelector('.ic').style.transform = `rotate(${d * 3}deg)`; ind.classList.toggle('ready', d >= TH); ind.querySelector('.tx').textContent = d >= TH ? '놓으면 새로고침' : '당겨서 새로고침'; };
+    const reset = () => { ind.style.transition = 'transform .2s, opacity .2s'; ind.style.opacity = '0'; ind.style.transform = 'translate(-50%, -60px)'; ind.classList.remove('ready'); setTimeout(() => { ind.style.transition = ''; }, 220); };
+    top.addEventListener('touchstart', (e) => { if (e.touches.length !== 1 || document.querySelector('.modal.on, .menu.on')) { p0 = null; return; } const t = e.touches[0]; p0 = { x: t.clientX, y: t.clientY }; dy = 0; pulling = false; }, { passive: true });
+    top.addEventListener('touchmove', (e) => {
+      if (!p0) return; const t = e.touches[0], dx = t.clientX - p0.x; dy = t.clientY - p0.y;
+      if (!pulling) { if (Math.abs(dx) > 12 && Math.abs(dx) > Math.abs(dy)) { p0 = null; return; } if (dy > 12 && dy > Math.abs(dx)) pulling = true; else return; } // 옆으로 미는 건(달 탭 넘기기) 그대로
+      if (e.cancelable) e.preventDefault(); show(Math.max(0, dy * 0.6));
+    }, { passive: false });
+    const end = () => {
+      if (!p0) return; const go = pulling && dy * 0.6 >= TH; p0 = null; pulling = false;
+      if (!go) { reset(); return; }
+      ind.classList.add('go'); ind.querySelector('.tx').textContent = '새로고침하는 중…';
+      try { const a = document.activeElement; if (a && a.blur) a.blur(); } catch (er) {} // 쓰던 글은 먼저 저장
+      setTimeout(() => location.reload(), 450);
+    };
+    top.addEventListener('touchend', end, { passive: true }); top.addEventListener('touchcancel', () => { p0 = null; pulling = false; reset(); }, { passive: true });
   }
 }
 
