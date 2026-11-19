@@ -4,6 +4,7 @@
 import re, sys
 src = sys.argv[1] if len(sys.argv) > 1 else 'src/app.html'; out = sys.argv[2] if len(sys.argv) > 2 else 'index.html'
 s = open(src, encoding='utf-8').read()
+BUILD_NO = re.search(r'const BUILD = (\d+);', s).group(1)  # web.js 주소에 붙여서 새 버전마다 새로 받게(브라우저가 옛 web.js를 쓰던 문제)
 s = re.sub(r'<!--\s*Diary template.*?-->', '', s, count=1, flags=re.S)
 i0 = s.index('const TEMPLATE = true;')  # 첫 번째가 실제 정의(뒤쪽은 문자열·검사용)
 assert s.rfind('\n', 0, i0) < i0 and s[s.rfind('\n', 0, i0)+1:i0].strip() == ''
@@ -43,8 +44,9 @@ head_add = '''<script>
 <link rel="modulepreload" href="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js">
 <link rel="manifest" href="manifest.webmanifest">
 <meta name="theme-color" content="#1f5bc4">
-<link rel="icon" href="icon-192.png">
-<link rel="apple-touch-icon" href="icon-192.png">
+<link rel="icon" href="dog-48.png" sizes="48x48">
+<link rel="icon" href="dog-192.png" sizes="192x192">
+<link rel="apple-touch-icon" href="apple-180.png">
 <style>
 #gate { position: fixed; inset: 0; z-index: 2147483000; display: grid; place-items: center; background: var(--kf5f7fa, #f5f7fa); padding: 24px 16px; font-family: system-ui, -apple-system, "Apple SD Gothic Neo", "Noto Sans KR", sans-serif; }
 #gate[hidden] { display: none; }
@@ -63,7 +65,7 @@ s = s.replace('</head>', head_add + '</head>', 1)
 m = re.search(r'<body[^>]*>', s)
 gate = '\n<div id="gate"><div class="gcard"><h1>생활일지</h1><p id="gateMsg">불러오는 중…</p><div id="gbtn" hidden></div><button id="gOut" hidden>다른 계정으로 로그인</button></div></div>\n'
 s = s[:m.end()] + gate + s[m.end():]
-tail = '<script src="https://accounts.google.com/gsi/client" async></script>\n<script type="module" src="shim.js"></script>\n<script>if (\'serviceWorker\' in navigator) { navigator.serviceWorker.register(\'sw.js\').catch(() => {}); navigator.serviceWorker.addEventListener(\'message\', (e) => { if (e.data !== \'diary-update\' || document.getElementById(\'wNew\')) return; const b = document.createElement(\'button\'); b.id = \'wNew\'; b.type = \'button\'; b.textContent = \'새 버전이 있어요 · 눌러서 새로고침\'; b.style.cssText = \'position:fixed;left:50%;transform:translateX(-50%);bottom:calc(16px + env(safe-area-inset-bottom));z-index:2147483001;border:0;border-radius:20px;padding:10px 18px;background:#1f5bc4;color:#fff;font:600 14px system-ui,sans-serif;box-shadow:0 4px 14px rgba(0,0,0,.2)\'; b.onclick = () => location.reload(); document.body.appendChild(b); }); }</script>\n'
+tail = '<script src="https://accounts.google.com/gsi/client" async></script>\n<script>window.__WEBV = ' + repr(BUILD_NO) + ';</script>\n<script type="module" src="shim.js"></script>\n<script>if (\'serviceWorker\' in navigator) { navigator.serviceWorker.register(\'sw.js\').catch(() => {}); navigator.serviceWorker.addEventListener(\'message\', (e) => { if (e.data !== \'diary-update\' || document.getElementById(\'wNew\')) return; const b = document.createElement(\'button\'); b.id = \'wNew\'; b.type = \'button\'; b.textContent = \'새 버전이 있어요 · 눌러서 새로고침\'; b.style.cssText = \'position:fixed;left:50%;transform:translateX(-50%);bottom:calc(16px + env(safe-area-inset-bottom));z-index:2147483001;border:0;border-radius:20px;padding:10px 18px;background:#1f5bc4;color:#fff;font:600 14px system-ui,sans-serif;box-shadow:0 4px 14px rgba(0,0,0,.2)\'; b.onclick = () => location.reload(); document.body.appendChild(b); }); }</script>\n'
 i = s.rindex('</body>')
 s = s[:i] + tail + s[i:]
 open(out, 'w', encoding='utf-8').write(s)

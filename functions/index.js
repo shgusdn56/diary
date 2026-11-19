@@ -291,12 +291,13 @@ exports.runJob = onDocumentCreated({ document: 'jobs/{jid}', memory: '2GiB', tim
       const cr = await db.doc('config/creator').get(); if (!cr.exists || cr.data().uid !== j.by) throw new Error('제작자만 보낼 수 있어요');
       const to = String(j.to || '').toLowerCase();
       const al = await db.doc('config/allow').get(); if (!(al.exists && (al.data().emails || []).includes(to))) throw new Error('새 일지 허락 명단에 없는 메일이에요');
+      const nm = String(((al.data().names || {})[to]) || '').trim(); const hi = nm ? `${nm}님, 안녕하세요!\n\n` : '';
       let who = '생활일지 제작자'; try { const u = await db.doc(`usage/${j.by}`).get(); if (u.exists && u.data().name) who = u.data().name + '님'; } catch (e) {}
       const google = /@(gmail\.com|googlemail\.com)$/.test(to) ? '' : `\n※ 로그인은 Google 계정으로 해요. ${to} 주소로 만든 Google 계정이 없으면 들어올 수 없어요. 그럴 땐 쓰시는 Gmail 주소를 알려 주세요.\n`;
       const fs = require('fs'), path = require('path'), pdf = path.join(__dirname, 'assets', 'guide.pdf');
       const { from, t } = await mailer();
       await t.sendMail({ from: `"생활일지" <${from}>`, to, subject: `[생활일지] ${who}이 나만의 생활일지를 열어 드렸어요`,
-        text: `${who}이 ${to} 계정으로 나만의 생활일지를 쓸 수 있게 열어 드렸어요.\n내 일지는 나와 내가 초대한 사람만 볼 수 있어요.\n\n` +
+        text: hi + `${who}이 ${to} 계정으로 나만의 생활일지를 쓸 수 있게 열어 드렸어요.\n내 일지는 나와 내가 초대한 사람만 볼 수 있어요.\n\n` +
           `1. 아래 주소를 삼성 인터넷·Chrome(아이폰은 Safari) 같은 브라우저에서 열어요\n${SITE}\n` +
           `※ 네이버·카카오톡 앱 안에서 바로 누르면 Google 로그인이 안 될 수 있어요. 주소를 길게 눌러 복사해서 브라우저에 붙여 넣어 주세요.\n\n` +
           `2. 'Google 계정으로 로그인'을 눌러 ${to} 계정으로 로그인해요(처음엔 30초쯤 걸릴 수 있어요)\n` +

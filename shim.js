@@ -285,7 +285,7 @@ onAuthStateChanged(auth, async (u) => {
     window.__step = '일지 열림';
     runApp();
     setTimeout(runDiag, /[?&]diag/.test(location.search) ? 3000 : 12000);
-    import(window.__WEBJS || './web.js').catch((e) => console.error('[web]', e)); // 시험판(test/)은 자기 web.js를 써요
+    import(window.__WEBJS || ('./web.js' + (window.__WEBV ? '?v=' + window.__WEBV : ''))).catch((e) => console.error('[web]', e)); // 시험판(test/)은 자기 web.js를 써요
   } catch (e) {
     console.error(e);
     showGate('일지를 열지 못했어요: ' + (e.code || e.message) + ' — 인터넷 연결을 확인하고 새로고침해 주세요.', false);
