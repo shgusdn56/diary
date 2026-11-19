@@ -199,8 +199,9 @@ exports.tick = onSchedule({ schedule: '* * * * *', timeZone: 'Asia/Seoul', memor
     try {
       const sp = await db.doc(`spaces/${sid}`).get(); if (!sp.exists || !(await isMember(sid, d.id, sp.data()))) continue;
       await d.ref.update({ mSent: n.iso });
-      await sendMorning(sid, d.id, false);
-    } catch (e) { logger.error('morning', sid, d.id, e); }
+      const r = await sendMorning(sid, d.id, false);
+      await d.ref.update({ mLast: { at: Date.now(), sent: r.sent || 0, devices: r.devices || 0, errs: (r.errs || []).slice(0, 2) } }); // 알림 창에 '마지막 아침 알림' 결과로 보여요
+    } catch (e) { logger.error('morning', sid, d.id, e); try { await d.ref.update({ mLast: { at: Date.now(), sent: 0, devices: 0, errs: [String(e.message || e).slice(0, 120)] } }); } catch (e2) {} }
   }
   const ps = await db.collection('spaces').where('pdfAt', '==', hhmm).get();
   for (const s of ps.docs) {
