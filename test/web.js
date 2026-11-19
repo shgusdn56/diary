@@ -345,10 +345,10 @@ $('wDevSw').addEventListener('click', async () => {
     // 서버 대답을 기다리지 않고 바로 꺼요(연결이 느리면 누른 게 반응 없는 것처럼 보였어요). 지우기는 뒤에서 계속돼요.
     try { localStorage.removeItem(DKEY); } catch (e) {}
     deleteDoc(doc(fs, `private/${U.uid}/devices/${id}`)).catch(() => {});
-    drawDev(); say('wNotiMsg', '이 기기 알림을 껐어요.'); return;
+    drawDev(); setTimeout(drawDevList, 800); say('wNotiMsg', '이 기기 알림을 껐어요.'); return;
   }
   say('wNotiMsg', '알림을 켜는 중…');
-  try { await registerDevice(true, true, (t) => say('wNotiMsg', t)); drawDev(); say('wNotiMsg', '이 기기에서 알림을 받아요. 아래 \'테스트\'로 확인해 보세요. 테스트 알림이 안 뜨면 위 \'알림이 안 오면\'을 눌러 휴대폰 설정을 확인해 주세요.'); }
+  try { await registerDevice(true, true, (t) => say('wNotiMsg', t)); drawDev(); drawDevList(); say('wNotiMsg', '이 기기에서 알림을 받아요. 아래 \'테스트\'로 확인해 보세요. 테스트 알림이 안 뜨면 위 \'알림이 안 오면\'을 눌러 휴대폰 설정을 확인해 주세요.'); }
   catch (e) { console.warn('[push]', e); drawDev(); const n = $('wDevNote'); n.className = 'wstat bad'; n.textContent = devErr(e); say('wNotiMsg', ''); }
 });
 // 서버를 거치지 않고 이 기기에서 바로 알림 띄우기 — 이게 보이면 휴대폰 화면 설정은 정상, 안 보이면 휴대폰·브라우저 알림 설정 문제예요
