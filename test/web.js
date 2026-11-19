@@ -578,16 +578,19 @@ if (CREATOR) {
   document.body.insertAdjacentHTML('beforeend', `
 <div class="modal" id="wAlwModal" role="dialog" aria-modal="true"><div class="sheet"><button class="wclose" type="button" aria-label="닫기">✕</button><h2>새 일지 허락 ${crTag()}</h2>
   <p class="note">서식을 받아 쓰던 분처럼 <b>자기 일지를 새로 만들 분</b>의 Google 메일을 넣어 주세요. 넣으면 그분께 주소·여는 법·사용설명서(PDF)가 담긴 안내 메일이 자동으로 가요('메일'로 다시 보낼 수 있어요). 그분이 로그인하면 빈 일지가 새로 생기고, 처음에 자기 비밀번호를 정해요. 이 일지와는 따로예요(같이 쓰는 분은 여기 말고 '공유'에서 초대해요).</p>
-  <div class="wal-in"><input id="wAlwIn" type="email" inputmode="email" placeholder="Google 메일 주소" autocomplete="off"><button type="button" class="wal-add" id="wAlwAdd">넣기</button></div>
+  <div class="wal-in"><input id="wAlwName" class="nm" type="text" placeholder="이름" autocomplete="off" maxlength="20"><input id="wAlwIn" type="email" inputmode="email" placeholder="Google 메일 주소" autocomplete="off"><button type="button" class="wal-add" id="wAlwAdd">넣기</button></div>
   <div id="wAlwList" style="margin-top:10px"></div>
   <div class="actions"><button class="ghost" id="wAlwNo">닫기</button></div><div class="msg" id="wAlwMsg"></div></div></div>`);
   { const st = document.createElement('style'); st.textContent = `
 #wAlwModal .wal-in { display: flex; gap: 8px; align-items: center; }
+#wAlwModal .wal-in input.nm { flex: 0 0 26%; }
 #wAlwModal .wal-in input { flex: 1; min-width: 0; height: 42px; border: 1px solid var(--line, #d9e1ee); border-radius: 12px; padding: 0 14px; font: inherit; font-size: 15px; background: var(--kffffff, #fff); color: inherit; }
 #wAlwModal .wal-in input:focus { outline: none; border-color: var(--blue, #1f5bc4); box-shadow: 0 0 0 3px var(--blue-l, #e8f0fe); }
 #wAlwModal .wal-add { height: 42px; padding: 0 18px; border: 0; border-radius: 12px; background: var(--blue, #1f5bc4); color: #fff; font: inherit; font-weight: 700; font-size: 15px; cursor: pointer; }
 #wAlwModal .wal-row { display: flex; align-items: center; gap: 6px; padding: 9px 2px; border-bottom: 1px solid var(--line, #e3e7ee); }
-#wAlwModal .wal-row .m { flex: 1; min-width: 0; word-break: break-all; font-size: 14.5px; }
+#wAlwModal .wal-row .m { flex: 1; min-width: 0; word-break: break-all; font-size: 13px; color: var(--mute, #6b7385); line-height: 1.4; }
+#wAlwModal .wal-row .m b { display: block; font-size: 15px; color: var(--ink, #1f2329); cursor: pointer; }
+#wAlwModal .wal-row .m b.empty { color: var(--mute, #9aa3b2); font-weight: 500; }
 #wAlwModal .wal-row button { border: 1px solid var(--line, #d9e1ee); background: var(--kf3f6fb, #f3f6fb); color: var(--ink, #1f2329); border-radius: 999px; padding: 5px 13px; font: inherit; font-size: 13px; font-weight: 600; cursor: pointer; }
 #wAlwModal .wal-row button[data-mail] { color: var(--blue, #1f5bc4); background: var(--blue-l, #e8f0fe); border-color: transparent; }
 #wAlwModal .wal-row button[data-del] { color: #d93025; background: transparent; }
@@ -596,24 +599,27 @@ if (CREATOR) {
   const acct = $('wAcct');
   if (acct) acct.insertAdjacentHTML('afterbegin', `<button class="mrowbtn" id="wAlwBtn" type="button"><span>새 일지 허락</span><span class="mval" id="wAlwN"></span><span class="chev">›</span></button>`);
   const aref = doc(fs, 'config', 'allow');
-  let emails = [];
+  let emails = [], names = {};
   const draw = () => {
     $('wAlwN').textContent = emails.length ? emails.length + '명' : '';
-    $('wAlwList').innerHTML = emails.length ? emails.map((m) => `<div class="wal-row"><span class="m">${esc(m)}</span><button type="button" data-mail="${esc(m)}">✉ 메일</button><button type="button" data-del="${esc(m)}">빼기</button></div>`).join('') : '<p class="note">아직 없어요.</p>';
+    $('wAlwList').innerHTML = emails.length ? emails.map((m) => `<div class="wal-row"><span class="m"><b data-nm="${esc(m)}" class="${names[m] ? '' : 'empty'}" title="눌러서 이름 바꾸기">${esc(names[m] || '이름 넣기 ✎')}</b>${esc(m)}</span><button type="button" data-mail="${esc(m)}">✉ 메일</button><button type="button" data-del="${esc(m)}">빼기</button></div>`).join('') : '<p class="note">아직 없어요.</p>';
   };
-  onSnapshot(aref, (s) => { emails = (s.exists() && Array.isArray(s.data().emails)) ? s.data().emails : []; draw(); }, () => {});
+  onSnapshot(aref, (s) => { emails = (s.exists() && Array.isArray(s.data().emails)) ? s.data().emails : []; names = (s.exists() && s.data().names) || {}; draw(); }, () => {});
   $('wAlwBtn').addEventListener('click', () => { closeMenu(); say('wAlwMsg', ''); draw(); open('wAlwModal'); });
   $('wAlwAdd').addEventListener('click', async () => {
     const m = $('wAlwIn').value.trim().toLowerCase();
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(m)) { say('wAlwMsg', '메일 주소를 확인해 주세요.', true); return; }
     if (emails.includes(m)) { say('wAlwMsg', '이미 들어 있어요.'); return; }
-    try { await setDoc(aref, { emails: arrayUnion(m) }, { merge: true }); $('wAlwIn').value = ''; say('wAlwMsg', '넣었어요. 안내 메일(사용설명서 첨부)을 보내는 중…'); job('allow-invite', { to: m }, 'wAlwMsg'); }
+    const nm = $('wAlwName').value.trim().slice(0, 20);
+    try { await setDoc(aref, { emails: arrayUnion(m), ...(nm ? { names: { [m]: nm } } : {}) }, { merge: true }); $('wAlwIn').value = ''; $('wAlwName').value = ''; say('wAlwMsg', '넣었어요. 안내 메일(사용설명서 첨부)을 보내는 중…'); job('allow-invite', { to: m }, 'wAlwMsg'); }
     catch (er) { say('wAlwMsg', '저장하지 못했어요: ' + (er.code || er.message), true); }
   });
   $('wAlwList').addEventListener('click', async (e) => {
+    const nb = e.target.closest('[data-nm]'); if (nb) { const m = nb.dataset.nm, v = prompt(`${m}의 이름`, names[m] || ''); if (v == null) return; const n = v.trim().slice(0, 20);
+      try { await updateDoc(aref, new FieldPath('names', m), n || deleteField()); say('wAlwMsg', n ? '이름을 저장했어요.' : '이름을 지웠어요.'); } catch (er) { say('wAlwMsg', '저장하지 못했어요: ' + (er.code || er.message), true); } return; }
     const mb = e.target.closest('[data-mail]'); if (mb) { say('wAlwMsg', '안내 메일을 다시 보내는 중…'); job('allow-invite', { to: mb.dataset.mail }, 'wAlwMsg'); return; }
     const b = e.target.closest('[data-del]'); if (!b) return;
-    try { await updateDoc(aref, { emails: arrayRemove(b.dataset.del) }); say('wAlwMsg', '뺐어요. 이미 만든 일지는 그대로 남아요.'); }
+    try { await updateDoc(aref, 'emails', arrayRemove(b.dataset.del), new FieldPath('names', b.dataset.del), deleteField()); say('wAlwMsg', '뺐어요. 이미 만든 일지는 그대로 남아요.'); }
     catch (er) { say('wAlwMsg', '빼지 못했어요: ' + (er.code || er.message), true); }
   });
 }
