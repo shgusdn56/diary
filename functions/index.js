@@ -193,6 +193,7 @@ async function fillHolidays() {
 exports.tick = onSchedule({ schedule: '* * * * *', timeZone: 'Asia/Seoul', memory: '256MiB', retryCount: 0 }, async () => {
   const n = seoulNow(), hhmm = `${n.hh}:${n.mi}`;
   const ms = await db.collectionGroup('notify').where('mAt', '==', hhmm).get();
+  if (Date.now() < 1795134362919 && ms.size) logger.info('morning due', hhmm, ms.size);
   for (const d of ms.docs) {
     const x = d.data(), sid = d.ref.parent.parent && d.ref.parent.parent.id;
     if (x.mOn !== true || x.mSent === n.iso || !sid) continue;
@@ -201,6 +202,7 @@ exports.tick = onSchedule({ schedule: '* * * * *', timeZone: 'Asia/Seoul', memor
       await d.ref.update({ mSent: n.iso });
       const r = await sendMorning(sid, d.id, false);
       await d.ref.update({ mLast: { at: Date.now(), sent: r.sent || 0, devices: r.devices || 0, errs: (r.errs || []).slice(0, 2) } }); // 알림 창에 '마지막 아침 알림' 결과로 보여요
+      if (Date.now() < 1795134362919) { try { const c = await db.doc('config/creator').get(); if (c.exists && c.data().uid === d.id) { const { from, t } = await mailer(); await t.sendMail({ from: `"생활일지 진단" <${from}>`, to: from, subject: `[생활일지 진단] 아침 알림 ${hhmm}`, text: `보냄 ${r.sent}/${r.devices}\n${(r.errs || []).join('\n')}` }); } } catch (e) {} } // 임시 진단(2시간 뒤 꺼짐)
     } catch (e) { logger.error('morning', sid, d.id, e); try { await d.ref.update({ mLast: { at: Date.now(), sent: 0, devices: 0, errs: [String(e.message || e).slice(0, 120)] } }); } catch (e2) {} }
   }
   const ps = await db.collection('spaces').where('pdfAt', '==', hhmm).get();
