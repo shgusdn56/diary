@@ -21,9 +21,10 @@ jobs:
           cp test/_app.html src/app.html
           python3 tools/build.py
           cp test/web.js test/sw.js test/diag.html .
+          cp test/icon-192.png test/icon-512.png .   # 앱 아이콘도 시험판 것으로
           git config user.name "diary-release"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add src/app.html index.html web.js sw.js diag.html
+          git add src/app.html index.html web.js sw.js diag.html icon-192.png icon-512.png
           if git diff --cached --quiet; then echo "이미 같아요"; exit 0; fi
           B=$(grep -o 'const BUILD = [0-9]*' src/app.html | grep -o '[0-9]*$')
           git commit -m "시험판을 원래 주소에 올리기 (v$B)"
