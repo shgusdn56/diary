@@ -694,6 +694,37 @@ if (CREATOR) {
   }
 }
 
+// ── 위쪽 머리 영역(제목·달 탭)을 잡고 아래로 끌면 새로고침 (손가락으로만, 쓰던 글은 먼저 저장)
+{
+  const top = document.querySelector('.top');
+  if (top) {
+    const ind = document.createElement('div'); ind.id = 'wPull'; ind.innerHTML = '<span class="ic">↻</span><span class="tx">당겨서 새로고침</span>';
+    document.body.appendChild(ind);
+    const st = document.createElement('style');
+    st.textContent = `#wPull { position: fixed; left: 50%; top: 0; z-index: 2147483002; transform: translate(-50%, -60px); display: flex; align-items: center; gap: 8px; padding: 8px 14px; border-radius: 999px; background: var(--kffffff, #fff); color: var(--blue, #1f5bc4); font: 700 13px system-ui, sans-serif; box-shadow: 0 4px 14px rgba(20,30,50,.18); pointer-events: none; opacity: 0; }
+#wPull .ic { display: inline-block; font-size: 17px; line-height: 1; } #wPull.ready { background: var(--blue, #1f5bc4); color: #fff; } #wPull.go .ic { animation: wpullspin .8s linear infinite; }
+@keyframes wpullspin { to { transform: rotate(360deg); } }`;
+    document.head.appendChild(st);
+    const TH = 80; let p0 = null, dy = 0, pulling = false;
+    const show = (d) => { const k = Math.min(1, d / TH); ind.style.opacity = String(k); ind.style.transform = `translate(-50%, ${Math.min(d, TH * 1.3) - 40}px)`; ind.querySelector('.ic').style.transform = `rotate(${d * 3}deg)`; ind.classList.toggle('ready', d >= TH); ind.querySelector('.tx').textContent = d >= TH ? '놓으면 새로고침' : '당겨서 새로고침'; };
+    const reset = () => { ind.style.transition = 'transform .2s, opacity .2s'; ind.style.opacity = '0'; ind.style.transform = 'translate(-50%, -60px)'; ind.classList.remove('ready'); setTimeout(() => { ind.style.transition = ''; }, 220); };
+    top.addEventListener('touchstart', (e) => { if (e.touches.length !== 1 || document.querySelector('.modal.on, .menu.on')) { p0 = null; return; } const t = e.touches[0]; p0 = { x: t.clientX, y: t.clientY }; dy = 0; pulling = false; }, { passive: true });
+    top.addEventListener('touchmove', (e) => {
+      if (!p0) return; const t = e.touches[0], dx = t.clientX - p0.x; dy = t.clientY - p0.y;
+      if (!pulling) { if (Math.abs(dx) > 12 && Math.abs(dx) > Math.abs(dy)) { p0 = null; return; } if (dy > 12 && dy > Math.abs(dx)) pulling = true; else return; } // 옆으로 미는 건(달 탭 넘기기) 그대로
+      if (e.cancelable) e.preventDefault(); show(Math.max(0, dy * 0.6));
+    }, { passive: false });
+    const end = () => {
+      if (!p0) return; const go = pulling && dy * 0.6 >= TH; p0 = null; pulling = false;
+      if (!go) { reset(); return; }
+      ind.classList.add('go'); ind.querySelector('.tx').textContent = '새로고침하는 중…';
+      try { const a = document.activeElement; if (a && a.blur) a.blur(); } catch (er) {} // 쓰던 글은 먼저 저장
+      setTimeout(() => location.reload(), 450);
+    };
+    top.addEventListener('touchend', end, { passive: true }); top.addEventListener('touchcancel', () => { p0 = null; pulling = false; reset(); }, { passive: true });
+  }
+}
+
 // ── 들어온 기록: 일지를 열 때마다(같은 기기는 10분에 한 번) 누가·언제·어떤 기기로 들어왔는지 남겨요. 주인만 봐요(90일 보관)
 // 그리고 사람마다 '마지막 사용일·버전' 한 줄(usage)을 남겨요 — 제작자만 봐요(일지 내용·접속 기록은 아님)
 const devOf = (ua) => {
