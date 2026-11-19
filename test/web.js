@@ -725,6 +725,29 @@ if (CREATOR) {
   }
 }
 
+// ── 한 번만 보는 공지(알림이 막힌 분도 볼 수 있게 일지 안에서): 휴대폰 알림 설정 확인 안내
+{
+  const NID = 'noti1';
+  // 제작자가 일지를 열면 같은 안내를 휴대폰 알림으로도 모두에게 한 번 보내요(서버가 한 번만 보내게 막아요)
+  if (CREATOR) setTimeout(async () => { try { if (!(await getDoc(doc(fs, 'config', 'bc_' + NID))).exists()) await addDoc(collection(fs, 'jobs'), { kind: 'broadcast', by: U.uid, at: Date.now(), to: NID }); } catch (e) {} }, 5000);
+  setTimeout(async () => {
+    const nref = doc(fs, `private/${U.uid}/web/notice_${NID}`);
+    try {
+      if ((await getDoc(nref)).exists()) return;
+      if (!(await getDoc(doc(fs, `private/${U.uid}/web/welcome`))).exists()) { setDoc(nref, { at: Date.now(), skip: 'new' }).catch(() => {}); return; } // 처음 오신 분은 환영 안내에 같은 내용이 있어요
+    } catch (e) { return; }
+    document.body.insertAdjacentHTML('beforeend', `<div class="modal" id="wNotice" role="dialog" aria-modal="true"><div class="sheet"><button class="wclose" type="button" aria-label="닫기">✕</button><h2>휴대폰 알림 설정을 확인해 주세요</h2>
+      <p class="note" style="font-size:14px;line-height:1.7">앱으로 설치한 생활일지는 휴대폰이 알림을 <b>'차단됨'으로 시작</b>하는 경우가 있어요. 그러면 일지에서 알림을 켜도 휴대폰에 알림이 오지 않아요.</p>
+      <div class="aubox" style="font-size:13.5px;line-height:1.7"><b>갤럭시</b> 설정 → 애플리케이션 → <b>생활일지</b> → 알림 → <b>허용</b><br><span style="color:var(--mute,#6b7385)">(홈 화면의 생활일지 아이콘을 길게 눌러 ⓘ 앱 정보 → 알림으로도 가요)</span><br><b>브라우저로 쓸 때</b> 설정 → 애플리케이션 → 삼성 인터넷(또는 Chrome) → 알림 허용<br><b>아이폰</b> 설정 → 알림 → 생활일지 → 알림 허용</div>
+      <p class="note">허용한 뒤 메뉴 → 휴대폰 알림 → '테스트'로 알림이 오는지 확인해 보세요.</p>
+      <div class="actions"><button class="ghost" id="wNoticeLater">나중에 다시 보기</button><button class="go" id="wNoticeOk">확인했어요</button></div></div></div>`);
+    const done = (keep) => { close('wNotice'); if (keep) setDoc(nref, { at: Date.now() }).catch(() => {}); };
+    $('wNoticeOk').addEventListener('click', () => done(true)); $('wNoticeLater').addEventListener('click', () => done(false));
+    $('wNotice').querySelector('.wclose').addEventListener('click', () => done(true));
+    const t0 = Date.now(); const tick = () => { if (Date.now() - t0 > 10 * 60e3) return; if (document.body.classList.contains('locked') || document.querySelector('.modal.on')) { setTimeout(tick, 1500); return; } open('wNotice'); }; tick();
+  }, 4000);
+}
+
 // ── 들어온 기록: 일지를 열 때마다(같은 기기는 10분에 한 번) 누가·언제·어떤 기기로 들어왔는지 남겨요. 주인만 봐요(90일 보관)
 // 그리고 사람마다 '마지막 사용일·버전' 한 줄(usage)을 남겨요 — 제작자만 봐요(일지 내용·접속 기록은 아님)
 const devOf = (ua) => {
