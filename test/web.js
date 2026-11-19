@@ -751,7 +751,7 @@ if (CREATOR) {
 // ── 저장 공간 '이 일지 몫': 서버가 무료 1GB를 일지 주인 수로 나눠 config/quota에 적어 둬요(메뉴의 저장 공간 막대가 이 값을 써요)
 onSnapshot(doc(fs, 'config', 'quota'), (s) => { const p = s.exists() ? +s.data().per || 0 : 0; if (p > 0) window.__QUOTA = p; }, () => {});
 
-// ── 들어온 기록: 일지를 열 때마다(같은 기기는 10분에 한 번) 누가·언제·어떤 기기로 들어왔는지 남겨요. 주인만 봐요(90일 보관)
+// ── 들어온 기록: 일지를 열 때마다(같은 기기는 10분에 한 번) 누가·언제·어떤 기기로 들어왔는지 남겨요. 주인만 봐요(7일 보관)
 // 그리고 사람마다 '마지막 사용일·버전' 한 줄(usage)을 남겨요 — 제작자만 봐요(일지 내용·접속 기록은 아님)
 const devOf = (ua) => {
   const os = /iPhone|iPad|iPod/.test(ua) ? '아이폰' : /Android/.test(ua) ? '안드로이드' : /Windows/.test(ua) ? '윈도우' : /Mac OS X/.test(ua) ? '맥' : '기타';
@@ -792,7 +792,7 @@ const devOf = (ua) => {
   document.head.appendChild(st5);
   document.body.insertAdjacentHTML('beforeend', `
 <div class="modal" id="wVlModal" role="dialog" aria-modal="true"><div class="sheet"><button class="wclose" type="button" aria-label="닫기">✕</button><h2>접속 기록</h2>
-  <p class="note">이 일지에 누가 언제 들어왔는지예요(같은 기기는 10분에 한 번, 90일 보관). 일지 내용은 남지 않아요.</p>
+  <p class="note">이 일지에 누가 언제 들어왔는지예요(같은 기기는 10분에 한 번, 7일 보관). 일지 내용은 남지 않아요.</p>
   <div class="wvlh">사람별 마지막 접속</div><div id="wVlPeople"></div>
   <details id="wVlFold"><summary class="wvlh">최근 기록</summary><div id="wVlList"></div></details>
   <div id="wVlCr" hidden><div class="wvlh">다른 일지 주인 · 마지막 사용일과 버전 ${crTag()}</div><div id="wVlUse"></div></div>
