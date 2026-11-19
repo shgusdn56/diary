@@ -358,7 +358,13 @@ $('wDevLocal').addEventListener('click', async () => {
     if (Notification.permission !== 'granted') { const p = await Notification.requestPermission(); if (p !== 'granted') throw new Error('알림 허용이 꺼져 있어요(브라우저·휴대폰 설정에서 허용해 주세요)'); }
     const reg = await pushReg();
     await reg.showNotification('[생활일지] 이 기기 알림 확인', { body: '이 알림이 보이면 휴대폰 화면 쪽 설정은 정상이에요.', icon: new URL((window.__WEBJS ? '../' : './') + 'icon-192.png', location.href).href, tag: 'local-test' });
-    say('wNotiMsg', '이 기기에 바로 알림을 띄웠어요. 위쪽 알림창에 보이면 정상이에요. 보이지 않으면 휴대폰·브라우저의 알림 설정 문제예요(아래 \'알림이 안 오면\' 참고).');
+    // 브라우저가 알림을 실제로 만들어 두었는지 확인: 있으면 휴대폰이 숨긴 것, 없으면 브라우저가 버린 것
+    await new Promise((ok) => setTimeout(ok, 700));
+    let n = -1; try { n = (await reg.getNotifications({ tag: 'local-test' })).length; } catch (e) {}
+    const how = standalone ? '설치한 앱' : '브라우저 탭';
+    say('wNotiMsg', n > 0 ? `이 기기에 바로 알림을 띄웠어요(${how} · 브라우저 확인: 알림 있음). 위쪽 알림창에 안 보이면 휴대폰이 숨긴 거예요.`
+      : n === 0 ? `브라우저가 알림을 만들지 않았어요(${how} · 브라우저 확인: 알림 없음). 브라우저 안에서 막힌 거예요. 설치한 생활일지 앱을 지우고 브라우저 탭에서 다시 눌러 보세요.`
+      : `이 기기에 바로 알림을 띄웠어요(${how}). 위쪽 알림창에 보이면 정상이에요.`);
   } catch (e) { say('wNotiMsg', '띄우지 못했어요: ' + (e.message || e), true); }
 });
 // 열 때마다 조용히 등록 번호를 새로 맞춰요(바뀌면 저장)
