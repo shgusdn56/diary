@@ -43,7 +43,7 @@ service cloud.firestore {
           || (request.resource.data.kind in ['holidays', 'release', 'broadcast'] && isCreator())
           || (request.resource.data.kind == 'allow-invite' && isCreator() && request.resource.data.to in get(/databases/$(database)/documents/config/allow).data.emails));
     }
-    // 들어온 기록: 구성원이 일지를 열 때 자기 것만 남기고, 읽기는 그 일지의 주인만(90일 지나면 서버가 지워요)
+    // 들어온 기록: 구성원이 일지를 열 때 자기 것만 남기고, 읽기는 그 일지의 주인만(7일 지나면 서버가 지워요)
     match /vlog/{s}/v/{d} {
       allow create: if signed() && request.resource.data.by == request.auth.uid && role(s) != ''
         && request.resource.data.keys().hasOnly(['by', 'email', 'name', 'at', 'ua', 'b']);
