@@ -252,10 +252,22 @@ async function cleanEmptySpaces() {
   logger.info('empty spaces removed', out); return out;
 }
 
+// ── 저장 공간 몫: 무료 1GB에서 10%는 공용(접속 기록·알림 기기 등)으로 남기고, 나머지를 일지 주인(소유자) 수로 똑같이 나눠요 → config/quota
+const FREE_BYTES = 1073741824, SHARED_PART = 0.1;
+async function recountQuota() {
+  const sp = await db.collection('spaces').select('owner').get();
+  const owners = new Set(sp.docs.map((d) => d.data().owner).filter(Boolean)), n = Math.max(1, sp.size);
+  const per = Math.floor(FREE_BYTES * (1 - SHARED_PART) / n);
+  await db.doc('config/quota').set({ n, owners: owners.size, per, at: Date.now() });
+  return { n, per };
+}
+exports.quotaOnCreate = onDocumentCreated('spaces/{sid}', async () => { try { logger.info('quota', await recountQuota()); } catch (e) { logger.error('quota', e); } });
+
 exports.holidaysDaily = onSchedule({ schedule: '10 4 * * *', timeZone: 'Asia/Seoul', retryCount: 1 }, async () => {
   // 매일 새벽: 90일 지난 들어온 기록 지우기
   try { const old = await db.collectionGroup('v').where('at', '<', Date.now() - 90 * 864e5).limit(400).get(); await Promise.all(old.docs.filter((d) => d.ref.parent.parent && d.ref.parent.parent.parent.id === 'vlog').map((d) => d.ref.delete())); logger.info('vlog cleanup', old.size); } catch (e) { logger.error('vlog cleanup', e); }
   try { await cleanEmptySpaces(); } catch (e) { logger.error('clean', e); }
+  try { await recountQuota(); } catch (e) { logger.error('quota', e); }
   const r = await fillHolidays(); logger.info('holidays', r);
 });
 
@@ -330,6 +342,7 @@ exports.runJob = onDocumentCreated({ document: 'jobs/{jid}', memory: '2GiB', tim
       await done({ msg: '올리기를 시작했어요. 2~3분 뒤 원래 주소에 반영돼요.' });
     } else if (j.kind === 'holidays') {
       let gone = []; try { gone = await cleanEmptySpaces(); } catch (e) { logger.error('clean', e); }
+      try { await recountQuota(); } catch (e) { logger.error('quota', e); }
       const r = await fillHolidays();
       await done({ result: r, msg: `공휴일 ${r.found}개를 확인했어요 · 새로 넣음 ${r.add} · 이름 고침 ${r.upd} · 빠져서 지움 ${r.del}` + (gone.length ? ` · 실수로 생긴 빈 일지 ${gone.length}개 정리` : '') });
     } else await done({ status: 'error', msg: '알 수 없는 작업' });
