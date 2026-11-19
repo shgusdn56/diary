@@ -358,8 +358,8 @@ async function saveN(x, ok) { try { await setDoc(nref(), { ...x, name: myName(),
 const needDev = () => (devId() ? '' : ' 이 기기로 받으려면 맨 위 \'이 기기에서 알림 받기\'도 켜 주세요.');
 $('wEditSw').addEventListener('click', () => { const on = !(nset.on === true); saveN({ on }, on ? '수정 알림을 켰어요.' + needDev() : '수정 알림을 껐어요.'); });
 const mornAt = () => (/^\d\d:\d\d$/.test($('wMornAt').value) ? $('wMornAt').value : '07:20');
-$('wMornSw').addEventListener('click', () => { const on = !(nset.mOn === true), at = mornAt(); saveN({ mOn: on, mAt: on ? at : '', mAtSet: at }, on ? `매일 ${at}에 오늘 일정을 알려 줘요.` + needDev() : '오늘 일정 알림을 껐어요.'); });
-$('wMornSave').addEventListener('click', () => { const at = mornAt(); saveN({ mOn: true, mAt: at, mAtSet: at }, `저장했어요: 매일 ${at}에 오늘 일정을 알려 줘요.` + needDev()); });
+$('wMornSw').addEventListener('click', () => { const on = !(nset.mOn === true), at = mornAt(); saveN({ mOn: on, mAt: on ? at : '', mAtSet: at, mSent: '' }, on ? `매일 ${at}에 오늘 일정을 알려 줘요.` + needDev() : '오늘 일정 알림을 껐어요.'); });
+$('wMornSave').addEventListener('click', () => { const at = mornAt(); saveN({ mOn: true, mAt: at, mAtSet: at, mSent: '' }, `저장했어요: 매일 ${at}에 오늘 일정을 알려 줘요.` + needDev()); });
 $('wEditTest').addEventListener('click', () => job('test-edit', { sid: SID }, 'wNotiMsg'));
 $('wMornTest').addEventListener('click', () => job('test-morning', { sid: SID }, 'wNotiMsg'));
 $('wHolGo').addEventListener('click', () => job('holidays', {}, 'wNotiMsg'));
