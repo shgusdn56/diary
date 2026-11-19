@@ -606,6 +606,18 @@ if (CREATOR) {
   });
 }
 
+// ── 시험판 ↔ 원래 일지 오가기 (제작자 전용): 메뉴에서 한 번에 건너가요(보던 일지 그대로)
+if (CREATOR) {
+  const acct = $('wAcct');
+  if (acct) acct.insertAdjacentHTML('afterbegin', `<button class="mrowbtn" id="wSwBtn" type="button"><span>${IS_TEST ? '원래 일지로 가기' : '시험판으로 가기'}</span>${crTag()}<span class="chev">›</span></button>`);
+  if ($('wSwBtn')) $('wSwBtn').addEventListener('click', () => {
+    closeMenu();
+    const u = new URL(location.href), base = u.pathname.replace(/test\/?(index\.html)?$/, '');
+    u.pathname = IS_TEST ? base : base.replace(/index\.html$/, '').replace(/\/?$/, '/') + 'test/';
+    u.searchParams.delete('welcome'); location.href = u.href;
+  });
+}
+
 // ── 들어온 기록: 일지를 열 때마다(같은 기기는 10분에 한 번) 누가·언제·어떤 기기로 들어왔는지 남겨요. 주인만 봐요(90일 보관)
 // 그리고 사람마다 '마지막 사용일·버전' 한 줄(usage)을 남겨요 — 제작자만 봐요(일지 내용·접속 기록은 아님)
 const devOf = (ua) => {
