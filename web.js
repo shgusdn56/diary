@@ -211,9 +211,14 @@ document.body.insertAdjacentHTML('beforeend', `
   <p class="note">알림은 이 일지를 연 휴대폰·컴퓨터로 와요. 알림을 받을 기기마다 한 번씩 '이 기기에서 알림 받기'를 켜 주세요.</p>
   <div class="aubox"><div class="auh"><b>이 기기에서 알림 받기</b>${sw('wDevSw', '이 기기에서 알림 받기')}</div>
     <p class="wstat" id="wDevNote"></p>
+    <p class="wstat" id="wDevList"></p>
+    <div class="aur"><button type="button" class="autest" id="wDevLocal" title="서버를 거치지 않고 이 휴대폰에 바로 알림을 띄워 봐요">이 기기에 바로 띄워 보기</button></div>
     <details class="wapn"><summary>알림이 안 오면 · 휴대폰 설정 확인</summary>
       <p>앱으로 설치한 생활일지는 <b>휴대폰이 알림을 '차단됨'으로 시작</b>하는 경우가 있어요. 그러면 여기서 켜고 '테스트'가 1/1로 나와도 알림이 화면에 안 떠요.</p>
       <p><b>갤럭시:</b> 설정 → 애플리케이션 → <b>생활일지</b> → 알림 → <b>허용</b>으로 바꿔 주세요(홈 화면의 생활일지 아이콘을 길게 눌러 ⓘ 앱 정보 → 알림으로도 갈 수 있어요).</p>
+      <p><b>설정이 다 '허용'인데도 안 뜨면(갤럭시):</b> 설치한 앱이 알림 통로 없이 설치된 경우예요. 아래 '이 기기에 바로 띄워 보기'를 눌러도 안 뜨면 이렇게 해 주세요(일지 내용은 그대로예요).<br>
+        ① 홈 화면의 생활일지 아이콘을 길게 눌러 <b>제거</b> → ② 삼성 인터넷으로 일지 주소를 열어 '이 기기에 바로 띄워 보기'로 뜨는지 확인 → ③ 메뉴에서 <b>앱 설치</b>를 다시 하고, 새 앱에서 '이 기기에서 알림 받기'를 껐다 켜기.</p>
+      <p><b>삼성 인터넷:</b> 설정 → 사이트 및 다운로드 → 알림에서 <b>'웹사이트 알림 자동 차단'을 꺼</b> 주세요. 켜져 있으면 알림을 잘 안 연다고 판단한 사이트를 말없이 막아요.</p>
       <p><b>브라우저로 쓸 때:</b> 설정 → 애플리케이션 → <b>삼성 인터넷(또는 Chrome)</b> → 알림이 허용인지, 브라우저의 사이트 알림에서 이 사이트가 허용인지 확인해 주세요.</p>
       <p><b>아이폰:</b> 설정 → 알림 → <b>생활일지</b> → 알림 허용.</p></details></div>
   <div class="aubox"><div class="auh"><b>수정 알림</b>${sw('wEditSw', '수정 알림')}</div>
@@ -221,7 +226,8 @@ document.body.insertAdjacentHTML('beforeend', `
     <div class="aur"><button type="button" class="autest" id="wEditTest">테스트</button></div></div>
   <div class="aubox"><div class="auh"><b>오늘 일정 알림</b>${sw('wMornSw', '오늘 일정 알림')}</div>
     <p>정한 시각에 그날 일지에 적힌 일정을 알려 줘요(근무·아래 칸은 빼요).</p>
-    <div class="aur"><input type="time" id="wMornAt" value="07:20" aria-label="알림 시각"><button type="button" class="go" id="wMornSave">저장</button><button type="button" class="autest" id="wMornTest">테스트</button></div></div>
+    <div class="aur"><input type="time" id="wMornAt" value="07:20" aria-label="알림 시각"><button type="button" class="go" id="wMornSave">저장</button><button type="button" class="autest" id="wMornTest">테스트</button></div>
+    <p class="wstat" id="wMornLast"></p></div>
   <div class="aubox" id="wHolBox" hidden><div class="auh"><b>공휴일 채우기 ${crTag()}</b></div>
     <p>매일 새벽 공휴일 달력(Google '대한민국의 휴일')을 확인해서 올해·내년 공휴일을 모든 일지에 맞춰요. 새로 생긴 임시공휴일은 더하고, 바뀐 이름은 고치고, 빠진 날은 지워요(직접 넣은 날짜는 그대로). 지금 바로 한 번 맞출 수도 있어요.</p>
     <div class="aur"><button type="button" class="autest" id="wHolGo">지금 맞추기</button></div></div>
@@ -286,18 +292,25 @@ async function pushReg() {
   return reg;
 }
 async function hashOf(t) { const b = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(t)); return [...new Uint8Array(b)].slice(0, 12).map((x) => x.toString(16).padStart(2, '0')).join(''); }
-async function registerDevice(ask, fresh) {
+// 오래 멈추는 단계는 시간이 지나면 어느 단계에서 멈췄는지 알려 줘요(전에는 '켜는 중…'에서 말없이 멈췄어요)
+const within = (p, ms, code) => Promise.race([p, new Promise((_, no) => setTimeout(() => no(new Error(code)), ms))]);
+async function registerDevice(ask, fresh, step = () => {}) {
   if (!('Notification' in window) || !('serviceWorker' in navigator)) throw new Error(isIOS && !standalone ? 'IOS' : 'NOSUP');
-  if (ask && Notification.permission !== 'granted') { const p = await Notification.requestPermission(); if (p !== 'granted') throw new Error(p === 'denied' ? 'DENIED' : 'NOPERM'); }
+  if (ask && Notification.permission !== 'granted') {
+    step('휴대폰이 알림 허용을 묻고 있으면 \'허용\'을 눌러 주세요(화면 아래쪽에 작게 뜰 수 있어요)…');
+    const p = await within(Notification.requestPermission(), 60000, 'ASKWAIT'); if (p !== 'granted') throw new Error(p === 'denied' ? 'DENIED' : 'NOPERM');
+  }
   if (Notification.permission !== 'granted') throw new Error('NOPERM');
-  const m = await messaging(); if (!m) throw new Error(isIOS && !standalone ? 'IOS' : 'NOSUP');
-  const reg = await pushReg();
-  let token = await msgMod.getToken(m, { serviceWorkerRegistration: reg });
+  step('알림 연결을 준비하는 중…');
+  const m = await within(messaging(), 20000, 'TOKWAIT'); if (!m) throw new Error(isIOS && !standalone ? 'IOS' : 'NOSUP');
+  const reg = await within(pushReg(), 20000, 'SWWAIT');
+  step('알림 등록 번호를 받는 중…');
+  let token = await within(msgMod.getToken(m, { serviceWorkerRegistration: reg }), 30000, 'TOKWAIT');
   // 새 번호 받기: 브라우저가 이미 무효가 된 옛 번호를 그대로 내놓는 경우가 있어서, 켤 때·서버가 지운 뒤에는 옛 번호를 버리고 새로 받아요
   if (fresh) {
-    try { await msgMod.deleteToken(m); } catch (e) { console.warn('[push] deleteToken', e && (e.code || e.message)); }
+    try { await within(msgMod.deleteToken(m), 15000, 'TOKWAIT'); } catch (e) { console.warn('[push] deleteToken', e && (e.code || e.message)); }
     try { const sub = await reg.pushManager.getSubscription(); if (sub) await sub.unsubscribe(); } catch (e) {}
-    token = await msgMod.getToken(m, { serviceWorkerRegistration: reg });
+    token = await within(msgMod.getToken(m, { serviceWorkerRegistration: reg }), 30000, 'TOKWAIT');
   }
   if (!token) throw new Error('NOTOKEN');
   const id = await hashOf(token), old = devId();
@@ -310,8 +323,18 @@ const devErr = (e) => ({
   NOSUP: '이 브라우저는 알림을 지원하지 않아요. 휴대폰은 Chrome(안드로이드)이나 홈 화면에 추가한 앱으로 열어 주세요.',
   DENIED: '알림이 차단돼 있어요. 휴대폰 설정 → 애플리케이션 → 생활일지(브라우저로 쓰면 삼성 인터넷·Chrome) → 알림을 \'허용\'으로 바꾸고, 브라우저의 사이트 알림도 허용으로 바꿔 주세요.',
   NOPERM: '알림 허용을 눌러야 받을 수 있어요.',
-  NOTOKEN: '알림 등록 번호를 받지 못했어요. 잠시 뒤 다시 해 주세요.'
+  NOTOKEN: '알림 등록 번호를 받지 못했어요. 잠시 뒤 다시 해 주세요.',
+  ASKWAIT: '알림 허용 질문에 대답이 없어요. 브라우저가 묻지 않고 막고 있을 수 있어요. 주소창 왼쪽 자물쇠(또는 브라우저 설정 → 사이트 권한 → 알림)에서 이 사이트를 \'허용\'으로 바꾼 뒤 다시 켜 주세요.',
+  SWWAIT: '빠르게 열기 기능이 준비되지 않았어요. 새로고침한 뒤 다시 켜 주세요.',
+  TOKWAIT: '브라우저의 알림 서비스가 대답하지 않아요. 이 브라우저의 알림 기능이 막혀 있을 수 있어요. 브라우저를 완전히 닫았다 열거나, Chrome으로 열어 다시 켜 주세요.'
 }[e && e.message] || ('알림을 켜지 못했어요: ' + ((e && (e.code || e.message)) || e)));
+// 이 계정으로 알림을 받는 기기 목록(어느 기기·언제 등록했는지) — 알림이 안 올 때 옛 기기 번호인지 볼 수 있게
+async function drawDevList() {
+  const el = $('wDevList'); if (!el) return;
+  try { const q = await getDocs(collection(fs, `private/${U.uid}/devices`)); const me = devId();
+    el.textContent = q.size ? '알림 받는 기기: ' + q.docs.map((d) => { const x = d.data(), t = new Date(x.at || 0); return `${d.id === me ? '이 기기' : '다른 기기'}(${(x.ua && /Android/.test(x.ua) ? '안드로이드' : x.ua && /iPhone|iPad/.test(x.ua) ? '아이폰' : 'PC')} · ${t.getMonth() + 1}/${t.getDate()} 등록)`; }).join(', ') : '알림 받는 기기가 아직 없어요.';
+  } catch (e) { el.textContent = ''; }
+}
 function drawDev() {
   const on = !!devId() && 'Notification' in window && Notification.permission === 'granted';
   setSw('wDevSw', on);
@@ -325,11 +348,27 @@ $('wDevSw').addEventListener('click', async () => {
     // 서버 대답을 기다리지 않고 바로 꺼요(연결이 느리면 누른 게 반응 없는 것처럼 보였어요). 지우기는 뒤에서 계속돼요.
     try { localStorage.removeItem(DKEY); } catch (e) {}
     deleteDoc(doc(fs, `private/${U.uid}/devices/${id}`)).catch(() => {});
-    drawDev(); say('wNotiMsg', '이 기기 알림을 껐어요.'); return;
+    drawDev(); setTimeout(drawDevList, 800); say('wNotiMsg', '이 기기 알림을 껐어요.'); return;
   }
   say('wNotiMsg', '알림을 켜는 중…');
-  try { await registerDevice(true, true); drawDev(); say('wNotiMsg', '이 기기에서 알림을 받아요. 아래 \'테스트\'로 확인해 보세요. 테스트 알림이 안 뜨면 위 \'알림이 안 오면\'을 눌러 휴대폰 설정을 확인해 주세요.'); }
+  try { await registerDevice(true, true, (t) => say('wNotiMsg', t)); drawDev(); drawDevList(); say('wNotiMsg', '이 기기에서 알림을 받아요. 아래 \'테스트\'로 확인해 보세요. 테스트 알림이 안 뜨면 위 \'알림이 안 오면\'을 눌러 휴대폰 설정을 확인해 주세요.'); }
   catch (e) { console.warn('[push]', e); drawDev(); const n = $('wDevNote'); n.className = 'wstat bad'; n.textContent = devErr(e); say('wNotiMsg', ''); }
+});
+// 서버를 거치지 않고 이 기기에서 바로 알림 띄우기 — 이게 보이면 휴대폰 화면 설정은 정상, 안 보이면 휴대폰·브라우저 알림 설정 문제예요
+$('wDevLocal').addEventListener('click', async () => {
+  try {
+    if (!('Notification' in window)) throw new Error('이 브라우저는 알림을 지원하지 않아요');
+    if (Notification.permission !== 'granted') { const p = await Notification.requestPermission(); if (p !== 'granted') throw new Error('알림 허용이 꺼져 있어요(브라우저·휴대폰 설정에서 허용해 주세요)'); }
+    const reg = await pushReg();
+    await reg.showNotification('[생활일지] 이 기기 알림 확인', { body: '이 알림이 보이면 휴대폰 화면 쪽 설정은 정상이에요.', icon: new URL((window.__WEBJS ? '../' : './') + 'icon-192.png', location.href).href, tag: 'local-test' });
+    // 브라우저가 알림을 실제로 만들어 두었는지 확인: 있으면 휴대폰이 숨긴 것, 없으면 브라우저가 버린 것
+    await new Promise((ok) => setTimeout(ok, 700));
+    let n = -1; try { n = (await reg.getNotifications({ tag: 'local-test' })).length; } catch (e) {}
+    const how = standalone ? '설치한 앱' : '브라우저 탭';
+    say('wNotiMsg', n > 0 ? `이 기기에 바로 알림을 띄웠어요(${how} · 브라우저 확인: 알림 있음). 위쪽 알림창에 안 보이면 휴대폰이 숨긴 거예요.`
+      : n === 0 ? `브라우저가 알림을 만들지 않았어요(${how} · 브라우저 확인: 알림 없음). 브라우저 안에서 막힌 거예요. 설치한 생활일지 앱을 지우고 브라우저 탭에서 다시 눌러 보세요.`
+      : `이 기기에 바로 알림을 띄웠어요(${how}). 위쪽 알림창에 보이면 정상이에요.`);
+  } catch (e) { say('wNotiMsg', '띄우지 못했어요: ' + (e.message || e), true); }
 });
 // 열 때마다 조용히 등록 번호를 새로 맞춰요(바뀌면 저장)
 setTimeout(async () => {
@@ -346,18 +385,23 @@ function drawN() {
   setSw('wEditSw', nset.on === true); setSw('wMornSw', nset.mOn === true);
   const at = /^\d\d:\d\d$/.test(nset.mAt || '') ? nset.mAt : /^\d\d:\d\d$/.test(nset.mAtSet || '') ? nset.mAtSet : '';
   if (at && document.activeElement !== $('wMornAt')) $('wMornAt').value = at;
+  // 서버가 남긴 마지막 아침 알림 결과
+  const L = nset.mLast, el = $('wMornLast');
+  if (el) { if (!L || !L.at) { el.textContent = ''; } else { const d = new Date(L.at), t = `${d.getMonth() + 1}/${d.getDate()} ${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
+    el.className = 'wstat' + (L.sent ? ' ok' : ' bad');
+    el.textContent = `마지막 아침 알림: ${t} · ` + (L.sent ? `기기 ${L.devices}대 중 ${L.sent}대에 보냈어요. 휴대폰에 안 떴다면 휴대폰 설정에서 생활일지 알림이 허용인지 확인해 주세요.` : L.devices ? `보내지 못했어요(${(L.errs || []).join(' / ')}). '이 기기에서 알림 받기'를 껐다 켜 주세요.` : (L.errs && L.errs.length ? `보내지 못했어요(${L.errs[0]})` : `알림을 받을 기기가 없어요. 맨 위 '이 기기에서 알림 받기'를 켜 주세요.`)); } }
 }
 const myName = () => { const p = W.profCache[U.uid]; return (p && p.name) || U.displayName || ''; };
 async function saveN(x, ok) { try { await setDoc(nref(), { ...x, name: myName(), updatedAt: Date.now() }, { merge: true }); say('wNotiMsg', ok); } catch (er) { say('wNotiMsg', '저장하지 못했어요: ' + (er.code || er.message), true); } }
 const needDev = () => (devId() ? '' : ' 이 기기로 받으려면 맨 위 \'이 기기에서 알림 받기\'도 켜 주세요.');
 $('wEditSw').addEventListener('click', () => { const on = !(nset.on === true); saveN({ on }, on ? '수정 알림을 켰어요.' + needDev() : '수정 알림을 껐어요.'); });
 const mornAt = () => (/^\d\d:\d\d$/.test($('wMornAt').value) ? $('wMornAt').value : '07:20');
-$('wMornSw').addEventListener('click', () => { const on = !(nset.mOn === true), at = mornAt(); saveN({ mOn: on, mAt: on ? at : '', mAtSet: at }, on ? `매일 ${at}에 오늘 일정을 알려 줘요.` + needDev() : '오늘 일정 알림을 껐어요.'); });
-$('wMornSave').addEventListener('click', () => { const at = mornAt(); saveN({ mOn: true, mAt: at, mAtSet: at }, `저장했어요: 매일 ${at}에 오늘 일정을 알려 줘요.` + needDev()); });
+$('wMornSw').addEventListener('click', () => { const on = !(nset.mOn === true), at = mornAt(); saveN({ mOn: on, mAt: on ? at : '', mAtSet: at, mSent: '' }, on ? `매일 ${at}에 오늘 일정을 알려 줘요.` + needDev() : '오늘 일정 알림을 껐어요.'); });
+$('wMornSave').addEventListener('click', () => { const at = mornAt(); saveN({ mOn: true, mAt: at, mAtSet: at, mSent: '' }, `저장했어요: 매일 ${at}에 오늘 일정을 알려 줘요.` + needDev()); });
 $('wEditTest').addEventListener('click', () => job('test-edit', { sid: SID }, 'wNotiMsg'));
 $('wMornTest').addEventListener('click', () => job('test-morning', { sid: SID }, 'wNotiMsg'));
 $('wHolGo').addEventListener('click', () => job('holidays', {}, 'wNotiMsg'));
-swapBtn('mNotiBtn', () => { say('wNotiMsg', ''); drawDev(); drawN(); $('wHolBox').hidden = !CREATOR; open('wNotiModal'); });
+swapBtn('mNotiBtn', () => { say('wNotiMsg', ''); drawDev(); drawDevList(); drawN(); $('wHolBox').hidden = !CREATOR; open('wNotiModal'); });
 
 // ── PDF 백업 메일: 설정은 일지 주인만, 함께 쓰는 사람은 보기만 (설정은 spaces/{id}.pdf)
 const FREQ = (c) => (c.f === 'd' ? '매일' : c.f === 'w' ? `매주 ${'일월화수목금토'[+c.dow || 0]}요일` : `매월 ${c.dom === 'L' ? '말일' : (c.dom || 1) + '일'}`);
@@ -670,7 +714,7 @@ if (CREATOR) {
 
 // ── 기능 설명서 창 맨 위: 사용설명서 PDF 받기 (사이트의 guide.pdf — 설명서를 고칠 때 GUIDE_V도 같이 올려요)
 {
-  const GUIDE_V = 'v11', nav = $('gdNav');
+  const GUIDE_V = 'v12', nav = $('gdNav');
   if (nav) {
     const url = new URL((window.__WEBJS ? '../' : './') + 'guide.pdf?v=' + GUIDE_V, location.href).href;
     const fname = `생활일지-사용설명서-${GUIDE_V}.pdf`;
