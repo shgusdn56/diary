@@ -24,7 +24,7 @@ import sys; p = sys.argv[1]; s = open(p, encoding='utf-8').read()
 # 시험판 바깥 파일이라 브라우저가 옛것을 잠깐(최대 10분) 다시 쓸 수 있어서, 올릴 때마다 주소 끝을 바꿔 새로 받게 해요
 import time; V = str(int(time.time()))
 s = s.replace('href="shim.js"', f'href="../shim.js?v={V}"').replace('src="shim.js"', f'src="../shim.js?v={V}"')
-s = s.replace(f'<script type="module" src="../shim.js?v={V}">', f'<script>window.__WEBJS = new URL("web.js", location.href).href;</script>\n<script type="module" src="../shim.js?v={V}">', 1)
+s = s.replace(f'<script type="module" src="../shim.js?v={V}">', f'<script>window.__WEBJS = new URL("web.js?v={V}", location.href).href;</script>\n<script type="module" src="../shim.js?v={V}">', 1)
 assert 'window.__WEBJS' in s
 # 시험판 표시: 원래 주소(../)와 화면 파일을 비교해서 '아직 안 올림'인지 '올라감'인지 보여 줘요
 tag = '''<div id="testBadge" style="position:fixed;left:8px;bottom:calc(8px + env(safe-area-inset-bottom));z-index:2147483003;background:#e8710a;color:#fff;font:700 12px/1.4 system-ui,sans-serif;padding:4px 10px;border-radius:10px;pointer-events:none;max-width:70vw">시험판 · 비교하는 중…</div>
