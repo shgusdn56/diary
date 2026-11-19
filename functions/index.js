@@ -13,7 +13,7 @@ const { initializeApp } = require('firebase-admin/app');
 const { getFirestore } = require('firebase-admin/firestore');
 const { getMessaging } = require('firebase-admin/messaging');
 const { syncHol } = require('./holidays-base');
-const { buildHtml, renderPdf, seoulNow, prevMonth, stripTags, pad } = require('./pdf');
+const { buildHtml, renderPdf, seoulNow, prevMonth, stripTags } = require('./pdf');
 
 initializeApp();
 const db = getFirestore();
