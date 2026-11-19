@@ -211,6 +211,8 @@ document.body.insertAdjacentHTML('beforeend', `
   <p class="note">알림은 이 일지를 연 휴대폰·컴퓨터로 와요. 알림을 받을 기기마다 한 번씩 '이 기기에서 알림 받기'를 켜 주세요.</p>
   <div class="aubox"><div class="auh"><b>이 기기에서 알림 받기</b>${sw('wDevSw', '이 기기에서 알림 받기')}</div>
     <p class="wstat" id="wDevNote"></p>
+    <p class="wstat" id="wDevList"></p>
+    <div class="aur"><button type="button" class="autest" id="wDevLocal" title="서버를 거치지 않고 이 휴대폰에 바로 알림을 띄워 봐요">이 기기에 바로 띄워 보기</button></div>
     <details class="wapn"><summary>알림이 안 오면 · 휴대폰 설정 확인</summary>
       <p>앱으로 설치한 생활일지는 <b>휴대폰이 알림을 '차단됨'으로 시작</b>하는 경우가 있어요. 그러면 여기서 켜고 '테스트'가 1/1로 나와도 알림이 화면에 안 떠요.</p>
       <p><b>갤럭시:</b> 설정 → 애플리케이션 → <b>생활일지</b> → 알림 → <b>허용</b>으로 바꿔 주세요(홈 화면의 생활일지 아이콘을 길게 눌러 ⓘ 앱 정보 → 알림으로도 갈 수 있어요).</p>
@@ -313,6 +315,13 @@ const devErr = (e) => ({
   NOPERM: '알림 허용을 눌러야 받을 수 있어요.',
   NOTOKEN: '알림 등록 번호를 받지 못했어요. 잠시 뒤 다시 해 주세요.'
 }[e && e.message] || ('알림을 켜지 못했어요: ' + ((e && (e.code || e.message)) || e)));
+// 이 계정으로 알림을 받는 기기 목록(어느 기기·언제 등록했는지) — 알림이 안 올 때 옛 기기 번호인지 볼 수 있게
+async function drawDevList() {
+  const el = $('wDevList'); if (!el) return;
+  try { const q = await getDocs(collection(fs, `private/${U.uid}/devices`)); const me = devId();
+    el.textContent = q.size ? '알림 받는 기기: ' + q.docs.map((d) => { const x = d.data(), t = new Date(x.at || 0); return `${d.id === me ? '이 기기' : '다른 기기'}(${(x.ua && /Android/.test(x.ua) ? '안드로이드' : x.ua && /iPhone|iPad/.test(x.ua) ? '아이폰' : 'PC')} · ${t.getMonth() + 1}/${t.getDate()} 등록)`; }).join(', ') : '알림 받는 기기가 아직 없어요.';
+  } catch (e) { el.textContent = ''; }
+}
 function drawDev() {
   const on = !!devId() && 'Notification' in window && Notification.permission === 'granted';
   setSw('wDevSw', on);
@@ -331,6 +340,16 @@ $('wDevSw').addEventListener('click', async () => {
   say('wNotiMsg', '알림을 켜는 중…');
   try { await registerDevice(true, true); drawDev(); say('wNotiMsg', '이 기기에서 알림을 받아요. 아래 \'테스트\'로 확인해 보세요. 테스트 알림이 안 뜨면 위 \'알림이 안 오면\'을 눌러 휴대폰 설정을 확인해 주세요.'); }
   catch (e) { console.warn('[push]', e); drawDev(); const n = $('wDevNote'); n.className = 'wstat bad'; n.textContent = devErr(e); say('wNotiMsg', ''); }
+});
+// 서버를 거치지 않고 이 기기에서 바로 알림 띄우기 — 이게 보이면 휴대폰 화면 설정은 정상, 안 보이면 휴대폰·브라우저 알림 설정 문제예요
+$('wDevLocal').addEventListener('click', async () => {
+  try {
+    if (!('Notification' in window)) throw new Error('이 브라우저는 알림을 지원하지 않아요');
+    if (Notification.permission !== 'granted') { const p = await Notification.requestPermission(); if (p !== 'granted') throw new Error('알림 허용이 꺼져 있어요(브라우저·휴대폰 설정에서 허용해 주세요)'); }
+    const reg = await pushReg();
+    await reg.showNotification('[생활일지] 이 기기 알림 확인', { body: '이 알림이 보이면 휴대폰 화면 쪽 설정은 정상이에요.', icon: new URL((window.__WEBJS ? '../' : './') + 'icon-192.png', location.href).href, tag: 'local-test' });
+    say('wNotiMsg', '이 기기에 바로 알림을 띄웠어요. 위쪽 알림창에 보이면 정상이에요. 보이지 않으면 휴대폰·브라우저의 알림 설정 문제예요(아래 \'알림이 안 오면\' 참고).');
+  } catch (e) { say('wNotiMsg', '띄우지 못했어요: ' + (e.message || e), true); }
 });
 // 열 때마다 조용히 등록 번호를 새로 맞춰요(바뀌면 저장)
 setTimeout(async () => {
@@ -363,7 +382,7 @@ $('wMornSave').addEventListener('click', () => { const at = mornAt(); saveN({ mO
 $('wEditTest').addEventListener('click', () => job('test-edit', { sid: SID }, 'wNotiMsg'));
 $('wMornTest').addEventListener('click', () => job('test-morning', { sid: SID }, 'wNotiMsg'));
 $('wHolGo').addEventListener('click', () => job('holidays', {}, 'wNotiMsg'));
-swapBtn('mNotiBtn', () => { say('wNotiMsg', ''); drawDev(); drawN(); $('wHolBox').hidden = !CREATOR; open('wNotiModal'); });
+swapBtn('mNotiBtn', () => { say('wNotiMsg', ''); drawDev(); drawDevList(); drawN(); $('wHolBox').hidden = !CREATOR; open('wNotiModal'); });
 
 // ── PDF 백업 메일: 설정은 일지 주인만, 함께 쓰는 사람은 보기만 (설정은 spaces/{id}.pdf)
 const FREQ = (c) => (c.f === 'd' ? '매일' : c.f === 'w' ? `매주 ${'일월화수목금토'[+c.dow || 0]}요일` : `매월 ${c.dom === 'L' ? '말일' : (c.dom || 1) + '일'}`);
