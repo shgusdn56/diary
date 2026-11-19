@@ -36,11 +36,11 @@ tag = '''<div id="testBadge" style="position:fixed;left:8px;bottom:calc(8px + en
   const lb = bn(li), tb = bn(ti), diff = [];
   if (lb !== tb) diff.push('일지 화면'); if (lw !== tw) diff.push('웹앱 창'); if (ls !== ts) diff.push('빠르게 열기');
   if (!li || !lw) { b.textContent = '시험판 v' + tb + ' · 원래 주소와 비교하지 못했어요'; return; }
-  if (!diff.length) { b.style.background = '#188038'; b.textContent = '시험판 v' + tb + ' · 원래 주소에 올라감(같아요)'; }
+  if (!diff.length) { b.style.background = '#188038'; b.textContent = '시험판 v' + tb + ' · 원래 일지에 업데이트됨(같아요)'; }
   else {
-    b.textContent = '시험판 v' + tb + ' · 아직 안 올림 (원래 v' + lb + ' · 다른 곳: ' + diff.join(', ') + ')';
+    b.textContent = '시험판 v' + tb + ' · 아직 업데이트 안 함 (원래 v' + lb + ' · 다른 곳: ' + diff.join(', ') + ')';
     // 제작자: 이 자리에서 바로 원래 주소에 올리기 (실제 동작은 web.js의 window.__testRelease)
-    const go = document.createElement('button'); go.type = 'button'; go.textContent = '원래 주소에 올리기';
+    const go = document.createElement('button'); go.type = 'button'; go.textContent = '원래 일지에 업데이트';
     go.style.cssText = 'display:block;margin-top:4px;border:0;border-radius:8px;background:#fff;color:#e8710a;font:700 12px system-ui,sans-serif;padding:4px 10px;pointer-events:auto';
     go.onclick = () => (window.__testRelease ? window.__testRelease(b) : alert('일지가 다 열린 뒤에 눌러 주세요. 노현우님만 올릴 수 있어요.'));
     b.appendChild(go);
