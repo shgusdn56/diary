@@ -20,7 +20,7 @@ const db = getFirestore();
 setGlobalOptions({ region: process.env.FN_REGION || 'asia-northeast3', maxInstances: 2 });
 
 const SITE = 'https://shgusdn56.github.io/diary/';
-const GUIDE_VER = 'v10'; // functions/assets/guide.pdf 를 바꿀 때 함께 올려요(안내 메일 첨부 파일 이름)
+const GUIDE_VER = 'v11'; // functions/assets/guide.pdf 를 바꿀 때 함께 올려요(안내 메일 첨부 파일 이름)
 const WDK = '일월화수목금토';
 const lnk = (sid) => `${SITE}?s=${encodeURIComponent(sid)}`;
 
