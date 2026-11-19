@@ -289,18 +289,25 @@ async function pushReg() {
   return reg;
 }
 async function hashOf(t) { const b = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(t)); return [...new Uint8Array(b)].slice(0, 12).map((x) => x.toString(16).padStart(2, '0')).join(''); }
-async function registerDevice(ask, fresh) {
+// 오래 멈추는 단계는 시간이 지나면 어느 단계에서 멈췄는지 알려 줘요(전에는 '켜는 중…'에서 말없이 멈췄어요)
+const within = (p, ms, code) => Promise.race([p, new Promise((_, no) => setTimeout(() => no(new Error(code)), ms))]);
+async function registerDevice(ask, fresh, step = () => {}) {
   if (!('Notification' in window) || !('serviceWorker' in navigator)) throw new Error(isIOS && !standalone ? 'IOS' : 'NOSUP');
-  if (ask && Notification.permission !== 'granted') { const p = await Notification.requestPermission(); if (p !== 'granted') throw new Error(p === 'denied' ? 'DENIED' : 'NOPERM'); }
+  if (ask && Notification.permission !== 'granted') {
+    step('휴대폰이 알림 허용을 묻고 있으면 \'허용\'을 눌러 주세요(화면 아래쪽에 작게 뜰 수 있어요)…');
+    const p = await within(Notification.requestPermission(), 60000, 'ASKWAIT'); if (p !== 'granted') throw new Error(p === 'denied' ? 'DENIED' : 'NOPERM');
+  }
   if (Notification.permission !== 'granted') throw new Error('NOPERM');
-  const m = await messaging(); if (!m) throw new Error(isIOS && !standalone ? 'IOS' : 'NOSUP');
-  const reg = await pushReg();
-  let token = await msgMod.getToken(m, { serviceWorkerRegistration: reg });
+  step('알림 연결을 준비하는 중…');
+  const m = await within(messaging(), 20000, 'TOKWAIT'); if (!m) throw new Error(isIOS && !standalone ? 'IOS' : 'NOSUP');
+  const reg = await within(pushReg(), 20000, 'SWWAIT');
+  step('알림 등록 번호를 받는 중…');
+  let token = await within(msgMod.getToken(m, { serviceWorkerRegistration: reg }), 30000, 'TOKWAIT');
   // 새 번호 받기: 브라우저가 이미 무효가 된 옛 번호를 그대로 내놓는 경우가 있어서, 켤 때·서버가 지운 뒤에는 옛 번호를 버리고 새로 받아요
   if (fresh) {
-    try { await msgMod.deleteToken(m); } catch (e) { console.warn('[push] deleteToken', e && (e.code || e.message)); }
+    try { await within(msgMod.deleteToken(m), 15000, 'TOKWAIT'); } catch (e) { console.warn('[push] deleteToken', e && (e.code || e.message)); }
     try { const sub = await reg.pushManager.getSubscription(); if (sub) await sub.unsubscribe(); } catch (e) {}
-    token = await msgMod.getToken(m, { serviceWorkerRegistration: reg });
+    token = await within(msgMod.getToken(m, { serviceWorkerRegistration: reg }), 30000, 'TOKWAIT');
   }
   if (!token) throw new Error('NOTOKEN');
   const id = await hashOf(token), old = devId();
@@ -313,7 +320,10 @@ const devErr = (e) => ({
   NOSUP: '이 브라우저는 알림을 지원하지 않아요. 휴대폰은 Chrome(안드로이드)이나 홈 화면에 추가한 앱으로 열어 주세요.',
   DENIED: '알림이 차단돼 있어요. 휴대폰 설정 → 애플리케이션 → 생활일지(브라우저로 쓰면 삼성 인터넷·Chrome) → 알림을 \'허용\'으로 바꾸고, 브라우저의 사이트 알림도 허용으로 바꿔 주세요.',
   NOPERM: '알림 허용을 눌러야 받을 수 있어요.',
-  NOTOKEN: '알림 등록 번호를 받지 못했어요. 잠시 뒤 다시 해 주세요.'
+  NOTOKEN: '알림 등록 번호를 받지 못했어요. 잠시 뒤 다시 해 주세요.',
+  ASKWAIT: '알림 허용 질문에 대답이 없어요. 브라우저가 묻지 않고 막고 있을 수 있어요. 주소창 왼쪽 자물쇠(또는 브라우저 설정 → 사이트 권한 → 알림)에서 이 사이트를 \'허용\'으로 바꾼 뒤 다시 켜 주세요.',
+  SWWAIT: '빠르게 열기 기능이 준비되지 않았어요. 새로고침한 뒤 다시 켜 주세요.',
+  TOKWAIT: '브라우저의 알림 서비스가 대답하지 않아요. 이 브라우저의 알림 기능이 막혀 있을 수 있어요. 브라우저를 완전히 닫았다 열거나, Chrome으로 열어 다시 켜 주세요.'
 }[e && e.message] || ('알림을 켜지 못했어요: ' + ((e && (e.code || e.message)) || e)));
 // 이 계정으로 알림을 받는 기기 목록(어느 기기·언제 등록했는지) — 알림이 안 올 때 옛 기기 번호인지 볼 수 있게
 async function drawDevList() {
@@ -338,7 +348,7 @@ $('wDevSw').addEventListener('click', async () => {
     drawDev(); say('wNotiMsg', '이 기기 알림을 껐어요.'); return;
   }
   say('wNotiMsg', '알림을 켜는 중…');
-  try { await registerDevice(true, true); drawDev(); say('wNotiMsg', '이 기기에서 알림을 받아요. 아래 \'테스트\'로 확인해 보세요. 테스트 알림이 안 뜨면 위 \'알림이 안 오면\'을 눌러 휴대폰 설정을 확인해 주세요.'); }
+  try { await registerDevice(true, true, (t) => say('wNotiMsg', t)); drawDev(); say('wNotiMsg', '이 기기에서 알림을 받아요. 아래 \'테스트\'로 확인해 보세요. 테스트 알림이 안 뜨면 위 \'알림이 안 오면\'을 눌러 휴대폰 설정을 확인해 주세요.'); }
   catch (e) { console.warn('[push]', e); drawDev(); const n = $('wDevNote'); n.className = 'wstat bad'; n.textContent = devErr(e); say('wNotiMsg', ''); }
 });
 // 서버를 거치지 않고 이 기기에서 바로 알림 띄우기 — 이게 보이면 휴대폰 화면 설정은 정상, 안 보이면 휴대폰·브라우저 알림 설정 문제예요
