@@ -20,6 +20,7 @@ const db = getFirestore();
 setGlobalOptions({ region: process.env.FN_REGION || 'asia-northeast3', maxInstances: 2 });
 
 const SITE = 'https://shgusdn56.github.io/diary/';
+const GUIDE_VER = 'v8'; // functions/assets/guide.pdf 를 바꿀 때 함께 올려요(안내 메일 첨부 파일 이름)
 const WDK = '일월화수목금토';
 const lnk = (sid) => `${SITE}?s=${encodeURIComponent(sid)}`;
 
@@ -302,7 +303,7 @@ exports.runJob = onDocumentCreated({ document: 'jobs/{jid}', memory: '2GiB', tim
           `3. 내 일지를 열 때 쓸 비밀번호를 정해요 — 잊어버리면 찾을 수 없으니 꼭 기억해 두세요\n` +
           `4. 처음 뜨는 환영 안내를 따라 휴대폰 알림을 켜고 앱으로 설치해요\n${google}\n` +
           `자세한 사용법은 붙여 드린 '생활일지 사용설명서'(PDF)를 봐 주세요.`,
-        attachments: fs.existsSync(pdf) ? [{ filename: '생활일지-사용설명서.pdf', path: pdf, contentType: 'application/pdf' }] : [] });
+        attachments: fs.existsSync(pdf) ? [{ filename: `생활일지-사용설명서-${GUIDE_VER}.pdf`, path: pdf, contentType: 'application/pdf' }] : [] });
       await done({ msg: `${to}로 안내 메일(사용설명서 첨부)을 보냈어요.` });
     } else if (j.kind === 'release') {
       // 시험판(test/)을 원래 주소에 올리기: GitHub의 '시험판 올리기' 작업을 시작시켜요(열쇠는 secret/github, 제작자만 저장)
