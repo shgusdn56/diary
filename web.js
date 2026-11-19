@@ -441,7 +441,6 @@ const prefLoad = getDoc(prefRef).then((x) => { if (x.exists() && x.data().updPop
 $('wUpdAutoSw').addEventListener('click', () => { updPopup = !updPopup; drawUpdAuto(); setDoc(prefRef, { updPopup, at: Date.now() }, { merge: true }).catch(() => {}); });
 $('wUpdAll').addEventListener('click', () => $('wUpdList').querySelectorAll('details').forEach((d) => { d.open = true; }));
 $('wUpdNone').addEventListener('click', () => $('wUpdList').querySelectorAll('details').forEach((d) => { d.open = false; }));
-const relDate = (r) => { const [y, m, d] = String(r.d || '').split('-').map(Number); return m ? `${y}년 ${m}월 ${d}일${r.t ? ' ' + r.t : ''}` : ''; };
 function drawUpd(sinceB) {
   // 같은 날 고친 것은 한 칸으로 모아요: 그날의 버전 범위(v337~v343)와 바뀐 점(최근 것부터)
   const days = [];
@@ -455,7 +454,7 @@ function drawUpd(sinceB) {
     const ver = hi ? (lo && lo !== hi ? `v${lo}~v${hi}` : `v${hi}`) : '초기 판';
     const isNew = !!sinceB && hi > sinceB;
     const openIt = sinceB ? isNew : i === 0; // 새로 바뀐 날(없으면 맨 위 하루)만 펼쳐 두고 나머지는 접어요
-    const [y, m, dd] = g.d.split('-').map(Number);
+    const [, m, dd] = g.d.split('-').map(Number);
     const notes = g.items.flatMap((r) => (r.notes || []).map((n) => ({ n, nw: !!sinceB && (+r.b || 0) > sinceB })));
     return `<details class="wrel${isNew ? ' on' : ''}"${openIt ? ' open' : ''}><summary class="wrelh"><b>${m ? `${m}월 ${dd}일` : '초기'}</b><span>${esc(ver)}</span>${isNew ? '<em class="wnew">새로</em>' : ''}<span class="wcnt">${notes.length}가지</span><i class="wchev" aria-hidden="true"></i></summary><ul>${notes.map((x) => `<li${x.nw ? ' class="wnl"' : ''}>${esc(String(x.n).replace(/\*\*/g, ''))}</li>`).join('')}</ul></details>`;
   }).join('') || '<p class="note">아직 기록이 없어요.</p>';
