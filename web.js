@@ -838,7 +838,7 @@ const devOf = (ua) => {
     } catch (e) {} finally { checking = false; }
   }
   setInterval(check, 5 * 60e3);
-  setTimeout(check, 8000); // 열자마자도 한 번: 연결이 느려 휴대폰에 저장된 옛 화면으로 열렸으면 곧바로 새 판으로 바꿔요
+  check(); // 열자마자 한 번: 연결이 느려 휴대폰에 저장된 옛 화면으로 열렸으면 곧바로 새 판으로 바꿔요
   document.addEventListener('visibilitychange', () => { if (!document.hidden) { if (newer) apply(); else check(); } });
   document.addEventListener('focusout', () => setTimeout(() => { if (newer && !busy() && document.getElementById('wNew')) apply(); }, 3000)); // 쓰기를 마치고 저장될 틈(3초)을 둔 뒤 바꿔요
 })();
