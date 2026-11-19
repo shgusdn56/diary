@@ -221,7 +221,8 @@ document.body.insertAdjacentHTML('beforeend', `
     <div class="aur"><button type="button" class="autest" id="wEditTest">테스트</button></div></div>
   <div class="aubox"><div class="auh"><b>오늘 일정 알림</b>${sw('wMornSw', '오늘 일정 알림')}</div>
     <p>정한 시각에 그날 일지에 적힌 일정을 알려 줘요(근무·아래 칸은 빼요).</p>
-    <div class="aur"><input type="time" id="wMornAt" value="07:20" aria-label="알림 시각"><button type="button" class="go" id="wMornSave">저장</button><button type="button" class="autest" id="wMornTest">테스트</button></div></div>
+    <div class="aur"><input type="time" id="wMornAt" value="07:20" aria-label="알림 시각"><button type="button" class="go" id="wMornSave">저장</button><button type="button" class="autest" id="wMornTest">테스트</button></div>
+    <p class="wstat" id="wMornLast"></p></div>
   <div class="aubox" id="wHolBox" hidden><div class="auh"><b>공휴일 채우기 ${crTag()}</b></div>
     <p>매일 새벽 공휴일 달력(Google '대한민국의 휴일')을 확인해서 올해·내년 공휴일을 모든 일지에 맞춰요. 새로 생긴 임시공휴일은 더하고, 바뀐 이름은 고치고, 빠진 날은 지워요(직접 넣은 날짜는 그대로). 지금 바로 한 번 맞출 수도 있어요.</p>
     <div class="aur"><button type="button" class="autest" id="wHolGo">지금 맞추기</button></div></div>
@@ -346,6 +347,11 @@ function drawN() {
   setSw('wEditSw', nset.on === true); setSw('wMornSw', nset.mOn === true);
   const at = /^\d\d:\d\d$/.test(nset.mAt || '') ? nset.mAt : /^\d\d:\d\d$/.test(nset.mAtSet || '') ? nset.mAtSet : '';
   if (at && document.activeElement !== $('wMornAt')) $('wMornAt').value = at;
+  // 서버가 남긴 마지막 아침 알림 결과
+  const L = nset.mLast, el = $('wMornLast');
+  if (el) { if (!L || !L.at) { el.textContent = ''; } else { const d = new Date(L.at), t = `${d.getMonth() + 1}/${d.getDate()} ${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
+    el.className = 'wstat' + (L.sent ? ' ok' : ' bad');
+    el.textContent = `마지막 아침 알림: ${t} · ` + (L.sent ? `기기 ${L.devices}대 중 ${L.sent}대에 보냈어요. 휴대폰에 안 떴다면 휴대폰 설정에서 생활일지 알림이 허용인지 확인해 주세요.` : L.devices ? `보내지 못했어요(${(L.errs || []).join(' / ')}). '이 기기에서 알림 받기'를 껐다 켜 주세요.` : (L.errs && L.errs.length ? `보내지 못했어요(${L.errs[0]})` : `알림을 받을 기기가 없어요. 맨 위 '이 기기에서 알림 받기'를 켜 주세요.`)); } }
 }
 const myName = () => { const p = W.profCache[U.uid]; return (p && p.name) || U.displayName || ''; };
 async function saveN(x, ok) { try { await setDoc(nref(), { ...x, name: myName(), updatedAt: Date.now() }, { merge: true }); say('wNotiMsg', ok); } catch (er) { say('wNotiMsg', '저장하지 못했어요: ' + (er.code || er.message), true); } }
