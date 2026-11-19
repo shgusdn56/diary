@@ -635,6 +635,19 @@ if (CREATOR) {
   });
 }
 
+// ── 기능 설명서 창 맨 위: 사용설명서 PDF 받기 (사이트의 guide.pdf — 설명서를 고칠 때 GUIDE_V도 같이 올려요)
+{
+  const GUIDE_V = 'v9', nav = $('gdNav');
+  if (nav) {
+    const url = new URL((window.__WEBJS ? '../' : './') + 'guide.pdf?v=' + GUIDE_V, location.href).href;
+    nav.insertAdjacentHTML('beforebegin', `<a class="wgpdf" href="${url}" download="생활일지-사용설명서-${GUIDE_V}.pdf" target="_blank" rel="noopener">📄 사용설명서 PDF 받기 <span>${GUIDE_V}</span></a>`);
+    const st = document.createElement('style');
+    st.textContent = `.wgpdf { display: flex; align-items: center; gap: 6px; margin: 2px 0 8px; padding: 9px 14px; border-radius: 12px; background: var(--blue-l, #e8f0fe); color: var(--blue, #1f5bc4); font-weight: 700; font-size: 14px; text-decoration: none; }
+.wgpdf span { margin-left: auto; font-size: 12px; font-weight: 600; opacity: .7; } .wgpdf:active { filter: brightness(.95); }`;
+    document.head.appendChild(st);
+  }
+}
+
 // ── 들어온 기록: 일지를 열 때마다(같은 기기는 10분에 한 번) 누가·언제·어떤 기기로 들어왔는지 남겨요. 주인만 봐요(90일 보관)
 // 그리고 사람마다 '마지막 사용일·버전' 한 줄(usage)을 남겨요 — 제작자만 봐요(일지 내용·접속 기록은 아님)
 const devOf = (ua) => {

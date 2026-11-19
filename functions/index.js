@@ -282,10 +282,12 @@ exports.runJob = onDocumentCreated({ document: 'jobs/{jid}', memory: '2GiB', tim
       const pr = await db.doc(`spaces/${j.sid}/profiles/${j.by}`).get(); const who = (pr.exists && pr.data().name) || '일지 주인';
       const jn = await journalName(j.sid), role = (S.roles || {})[to] === 'view' ? '보기만' : '함께 쓰기';
       const google = /@(gmail\.com|googlemail\.com)$/.test(to) ? '' : `\n※ 로그인은 Google 계정으로 해요. ${to} 주소로 만든 Google 계정이 없으면 들어올 수 없어요. 그럴 땐 쓰시는 Gmail 주소를 ${who}님께 알려 주세요.\n`;
+      const fs = require('fs'), path = require('path'), pdf = path.join(__dirname, 'assets', 'guide.pdf');
       const { from, t } = await mailer();
       await t.sendMail({ from: `"${jn.replace(/"/g, '')}" <${from}>`, to, subject: `[${jn}] ${who}님이 일지에 초대했어요`,
-        text: `${who}님이 '${jn}'을 같이 쓰자고 초대했어요(${role}).\n\n1. 아래 주소를 삼성 인터넷·Chrome(아이폰은 Safari) 같은 브라우저에서 열어요\n${lnk(j.sid)}\n※ 네이버·카카오톡 앱 안에서 바로 누르면 로그인이 안 될 수 있어요. 주소를 길게 눌러 복사한 뒤 브라우저에 붙여 넣어 열어 주세요.\n\n2. 'Google 계정으로 로그인'을 눌러 이 메일(${to})의 Google 계정으로 로그인하면 바로 열려요.\n${google}\n휴대폰 알림을 받으려면 일지 메뉴 → 휴대폰 알림 → '이 기기에서 알림 받기'를 켜 주세요.\n(아이폰은 Safari에서 공유 → '홈 화면에 추가'를 한 뒤 그 아이콘으로 열어야 알림이 와요)` });
-      await done({ msg: `${to}로 초대 메일을 보냈어요.` });
+        text: `${who}님이 '${jn}'을 같이 쓰자고 초대했어요(${role}).\n\n1. 아래 주소를 삼성 인터넷·Chrome(아이폰은 Safari) 같은 브라우저에서 열어요\n${lnk(j.sid)}\n※ 네이버·카카오톡 앱 안에서 바로 누르면 로그인이 안 될 수 있어요. 주소를 길게 눌러 복사한 뒤 브라우저에 붙여 넣어 열어 주세요.\n\n2. 'Google 계정으로 로그인'을 눌러 이 메일(${to})의 Google 계정으로 로그인하면 바로 열려요.\n${google}\n휴대폰 알림을 받으려면 일지 메뉴 → 휴대폰 알림 → '이 기기에서 알림 받기'를 켜 주세요.\n(아이폰은 Safari에서 공유 → '홈 화면에 추가'를 한 뒤 그 아이콘으로 열어야 알림이 와요)\n\n자세한 사용법은 붙여 드린 '생활일지 사용설명서'(PDF)를 봐 주세요.`,
+        attachments: fs.existsSync(pdf) ? [{ filename: `생활일지-사용설명서-${GUIDE_VER}.pdf`, path: pdf, contentType: 'application/pdf' }] : [] });
+      await done({ msg: `${to}로 초대 메일(사용설명서 첨부)을 보냈어요.` });
     } else if (j.kind === 'allow-invite') {
       // 새 일지 허락 안내 메일: 제작자가 '새 일지 허락'에 넣은 메일로 주소·여는 법·처음 순서를 보내고 사용설명서 PDF를 붙여요
       const cr = await db.doc('config/creator').get(); if (!cr.exists || cr.data().uid !== j.by) throw new Error('제작자만 보낼 수 있어요');
