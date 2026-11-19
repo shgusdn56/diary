@@ -10,7 +10,7 @@ const { onDocumentCreated, onDocumentWritten } = require('firebase-functions/v2/
 const { onSchedule } = require('firebase-functions/v2/scheduler');
 const logger = require('firebase-functions/logger');
 const { initializeApp } = require('firebase-admin/app');
-const { getFirestore } = require('firebase-admin/firestore');
+const { getFirestore, FieldValue } = require('firebase-admin/firestore');
 const { getMessaging } = require('firebase-admin/messaging');
 const { syncHol } = require('./holidays-base');
 const { buildHtml, renderPdf, seoulNow, prevMonth, stripTags } = require('./pdf');
@@ -263,9 +263,27 @@ async function recountQuota() {
 }
 exports.quotaOnCreate = onDocumentCreated('spaces/{sid}', async () => { try { logger.info('quota', await recountQuota()); } catch (e) { logger.error('quota', e); } });
 
+// ── 매일 새벽 정리: 계속 쌓이는 기록은 7일이 지나면 지워요(업데이트 내역·일지 내용·사진 보호는 그대로)
+//  · 접속 기록(vlog) · 수정 알림 기록(activity) · 날짜별 수정 기록(hist) · 서버 작업 부탁(jobs)
+const KEEP_MS = 7 * 864e5;
+async function delQuery(q, keep) { let n = 0; for (let k = 0; k < 20; k++) { const s = await q.limit(400).get(); const docs = s.docs.filter(keep || (() => true)); if (!docs.length) break; const b = db.batch(); docs.forEach((d) => b.delete(d.ref)); await b.commit(); n += docs.length; if (s.size < 400) break; } return n; }
+async function cleanupOld() {
+  const lim = Date.now() - KEEP_MS, out = {};
+  out.vlog = await delQuery(db.collectionGroup('v').where('at', '<', lim), (d) => d.ref.parent.parent && d.ref.parent.parent.parent.id === 'vlog');
+  out.activity = await delQuery(db.collectionGroup('activity').where('at', '<', lim), (d) => d.ref.path.startsWith('spaces/'));
+  out.jobs = await delQuery(db.collection('jobs').where('at', '<', lim));
+  // 날짜별 수정 기록: 마지막으로 고친 지 7일이 지난 날짜는 수정 기록이 다 7일 넘은 거라 통째로 비워요(처음 한 번은 전부, 그 뒤엔 최근 열흘 사이만)
+  const fl = db.doc('config/cleanup'), first = !((await fl.get()).exists);
+  let q = db.collectionGroup('days').where('updatedAt', '<', lim); if (!first) q = q.where('updatedAt', '>=', lim - 3 * 864e5);
+  let hist = 0, last = null;
+  for (let k = 0; k < 50; k++) { let qq = q.orderBy('updatedAt').limit(300); if (last) qq = qq.startAfter(last); const s = await qq.get(); if (s.empty) break; last = s.docs[s.docs.length - 1];
+    const b = db.batch(); let m = 0; s.docs.forEach((d) => { const h = d.get('hist'); if (Array.isArray(h) && h.length) { b.update(d.ref, { hist: FieldValue.delete() }); m++; } }); if (m) await b.commit(); hist += m; if (s.size < 300) break; }
+  out.hist = hist; await fl.set({ at: Date.now(), last: out }, { merge: true });
+  return out;
+}
+
 exports.holidaysDaily = onSchedule({ schedule: '10 4 * * *', timeZone: 'Asia/Seoul', retryCount: 1 }, async () => {
-  // 매일 새벽: 90일 지난 들어온 기록 지우기
-  try { const old = await db.collectionGroup('v').where('at', '<', Date.now() - 90 * 864e5).limit(400).get(); await Promise.all(old.docs.filter((d) => d.ref.parent.parent && d.ref.parent.parent.parent.id === 'vlog').map((d) => d.ref.delete())); logger.info('vlog cleanup', old.size); } catch (e) { logger.error('vlog cleanup', e); }
+  try { logger.info('cleanup', await cleanupOld()); } catch (e) { logger.error('cleanup', e); }
   try { await cleanEmptySpaces(); } catch (e) { logger.error('clean', e); }
   try { await recountQuota(); } catch (e) { logger.error('quota', e); }
   const r = await fillHolidays(); logger.info('holidays', r);
