@@ -285,6 +285,25 @@ exports.runJob = onDocumentCreated({ document: 'jobs/{jid}', memory: '2GiB', tim
       await t.sendMail({ from: `"${jn.replace(/"/g, '')}" <${from}>`, to, subject: `[${jn}] ${who}님이 일지에 초대했어요`,
         text: `${who}님이 '${jn}'을 같이 쓰자고 초대했어요(${role}).\n\n1. 아래 주소를 삼성 인터넷·Chrome(아이폰은 Safari) 같은 브라우저에서 열어요\n${lnk(j.sid)}\n※ 네이버·카카오톡 앱 안에서 바로 누르면 로그인이 안 될 수 있어요. 주소를 길게 눌러 복사한 뒤 브라우저에 붙여 넣어 열어 주세요.\n\n2. 'Google 계정으로 로그인'을 눌러 이 메일(${to})의 Google 계정으로 로그인하면 바로 열려요.\n${google}\n휴대폰 알림을 받으려면 일지 메뉴 → 휴대폰 알림 → '이 기기에서 알림 받기'를 켜 주세요.\n(아이폰은 Safari에서 공유 → '홈 화면에 추가'를 한 뒤 그 아이콘으로 열어야 알림이 와요)` });
       await done({ msg: `${to}로 초대 메일을 보냈어요.` });
+    } else if (j.kind === 'allow-invite') {
+      // 새 일지 허락 안내 메일: 제작자가 '새 일지 허락'에 넣은 메일로 주소·여는 법·처음 순서를 보내고 사용설명서 PDF를 붙여요
+      const cr = await db.doc('config/creator').get(); if (!cr.exists || cr.data().uid !== j.by) throw new Error('제작자만 보낼 수 있어요');
+      const to = String(j.to || '').toLowerCase();
+      const al = await db.doc('config/allow').get(); if (!(al.exists && (al.data().emails || []).includes(to))) throw new Error('새 일지 허락 명단에 없는 메일이에요');
+      let who = '생활일지 제작자'; try { const u = await db.doc(`usage/${j.by}`).get(); if (u.exists && u.data().name) who = u.data().name + '님'; } catch (e) {}
+      const google = /@(gmail\.com|googlemail\.com)$/.test(to) ? '' : `\n※ 로그인은 Google 계정으로 해요. ${to} 주소로 만든 Google 계정이 없으면 들어올 수 없어요. 그럴 땐 쓰시는 Gmail 주소를 알려 주세요.\n`;
+      const fs = require('fs'), path = require('path'), pdf = path.join(__dirname, 'assets', 'guide.pdf');
+      const { from, t } = await mailer();
+      await t.sendMail({ from: `"생활일지" <${from}>`, to, subject: `[생활일지] ${who}이 나만의 생활일지를 열어 드렸어요`,
+        text: `${who}이 ${to} 계정으로 나만의 생활일지를 쓸 수 있게 열어 드렸어요.\n내 일지는 나와 내가 초대한 사람만 볼 수 있어요.\n\n` +
+          `1. 아래 주소를 삼성 인터넷·Chrome(아이폰은 Safari) 같은 브라우저에서 열어요\n${SITE}\n` +
+          `※ 네이버·카카오톡 앱 안에서 바로 누르면 Google 로그인이 안 될 수 있어요. 주소를 길게 눌러 복사해서 브라우저에 붙여 넣어 주세요.\n\n` +
+          `2. 'Google 계정으로 로그인'을 눌러 ${to} 계정으로 로그인해요(처음엔 30초쯤 걸릴 수 있어요)\n` +
+          `3. 내 일지를 열 때 쓸 비밀번호를 정해요 — 잊어버리면 찾을 수 없으니 꼭 기억해 두세요\n` +
+          `4. 처음 뜨는 환영 안내를 따라 휴대폰 알림을 켜고 앱으로 설치해요\n${google}\n` +
+          `자세한 사용법은 붙여 드린 '생활일지 사용설명서'(PDF)를 봐 주세요.`,
+        attachments: fs.existsSync(pdf) ? [{ filename: '생활일지-사용설명서.pdf', path: pdf, contentType: 'application/pdf' }] : [] });
+      await done({ msg: `${to}로 안내 메일(사용설명서 첨부)을 보냈어요.` });
     } else if (j.kind === 'release') {
       // 시험판(test/)을 원래 주소에 올리기: GitHub의 '시험판 올리기' 작업을 시작시켜요(열쇠는 secret/github, 제작자만 저장)
       const g = await db.doc('secret/github').get(), tok = g.exists && g.data().token;
