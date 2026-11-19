@@ -426,8 +426,8 @@ document.body.insertAdjacentHTML('beforeend', `
   <div class="wtools"><button type="button" id="wUpdAll">모두 펼치기</button><button type="button" id="wUpdNone">모두 접기</button></div>
   <div id="wUpdList"></div>
   <div class="aubox"><div class="auh"><b>새 버전이 나오면 바뀐 점 창 띄우기</b>${sw('wUpdAutoSw', '새 버전이 나오면 바뀐 점 창 띄우기')}</div><p class="wstat" id="wUpdAutoNote"></p></div>
-  <div class="aubox" id="wGhBox" hidden><div class="auh"><b>올리기 연결 ${crTag()}</b></div>
-    <p>시험판의 '원래 주소에 올리기' 단추가 쓰는 GitHub 열쇠예요. GitHub → Settings → Developer settings → Fine-grained tokens에서 diary 저장소 하나만, Contents 'Read and write' 권한으로 만든 열쇠를 넣어 주세요. 저장한 열쇠는 서버만 읽을 수 있어요.</p>
+  <div class="aubox" id="wGhBox" hidden><div class="auh"><b>업데이트 연결 ${crTag()}</b></div>
+    <p>시험판의 '원래 일지에 업데이트' 단추가 쓰는 GitHub 열쇠예요. GitHub → Settings → Developer settings → Fine-grained tokens에서 diary 저장소 하나만, Contents 'Read and write' 권한으로 만든 열쇠를 넣어 주세요. 저장한 열쇠는 서버만 읽을 수 있어요.</p>
     <div class="aur"><input class="tin" id="wGhTok" type="password" placeholder="github_pat_로 시작하는 열쇠" autocomplete="off"></div>
     <p class="wstat" id="wGhInfo"></p>
     <div class="aur"><button type="button" class="go" id="wGhSave">저장</button></div></div>
@@ -465,7 +465,7 @@ async function drawGh() {
 $('wGhSave').addEventListener('click', async () => {
   const t = $('wGhTok').value.trim();
   if (!/^(github_pat_|ghp_)[A-Za-z0-9_]{20,}$/.test(t)) { say('wUpdMsg', 'github_pat_로 시작하는 열쇠를 붙여 넣어 주세요.', true); return; }
-  try { await setDoc(doc(fs, 'secret', 'github'), { token: t, at: Date.now() }); await setDoc(doc(fs, 'config', 'ghinfo'), { at: Date.now(), tail: t.slice(-4) }); $('wGhTok').value = ''; say('wUpdMsg', '올리기 연결을 저장했어요.'); drawGh(); }
+  try { await setDoc(doc(fs, 'secret', 'github'), { token: t, at: Date.now() }); await setDoc(doc(fs, 'config', 'ghinfo'), { at: Date.now(), tail: t.slice(-4) }); $('wGhTok').value = ''; say('wUpdMsg', '업데이트 연결을 저장했어요.'); drawGh(); }
   catch (er) { say('wUpdMsg', '저장하지 못했어요: ' + (er.code || er.message), true); }
 });
 function openUpd(sinceB) {
@@ -529,12 +529,12 @@ async function welcome(oldUser) {
 
 // ── 시험판 → 원래 주소 올리기 (제작자, 시험판에서만): 서버가 GitHub 작업을 시작시켜요
 if (IS_TEST && CREATOR) window.__testRelease = async (badge) => {
-  if (!confirm('지금 시험판을 원래 주소에 올릴까요? 함께 쓰는 모든 분에게 적용돼요.')) return;
+  if (!confirm('지금 시험판을 원래 일지에 업데이트할까요? 일지를 쓰는 모든 분에게 적용돼요.')) return;
   const set = (t, c) => { badge.textContent = t; if (c) badge.style.background = c; };
-  set('올리는 중… 서버에 부탁하는 중');
+  set('업데이트하는 중… 서버에 부탁하는 중');
   try {
     const r = await addDoc(collection(fs, 'jobs'), { kind: 'release', by: U.uid, at: Date.now() });
-    const un = onSnapshot(r, (s) => { const x = s.data(); if (!x || !x.status) return; un(); if (x.status === 'done') set('올리기 시작됨 · 2~3분 뒤 새로고침하면 초록색으로 바뀌어요', '#1f5bc4'); else set('올리지 못했어요: ' + (x.msg || ''), '#d93025'); }, () => {});
+    const un = onSnapshot(r, (s) => { const x = s.data(); if (!x || !x.status) return; un(); if (x.status === 'done') set('업데이트 시작됨 · 2~3분 뒤 새로고침하면 초록색으로 바뀌어요', '#1f5bc4'); else set('업데이트하지 못했어요: ' + (x.msg || ''), '#d93025'); }, () => {});
   } catch (er) { set('올리지 못했어요: ' + (er.code || er.message), '#d93025'); }
 };
 
