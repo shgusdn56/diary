@@ -15,11 +15,13 @@ public class App extends android.app.Application {
     final Thread.UncaughtExceptionHandler prev = Thread.getDefaultUncaughtExceptionHandler();
     Thread.setDefaultUncaughtExceptionHandler((t, e) -> {
       try {
-        StringWriter sw = new StringWriter(); e.printStackTrace(new PrintWriter(sw));
+        Throwable root = e; while (root.getCause() != null && root.getCause() != root) root = root.getCause();
+        StringWriter sw = new StringWriter(); root.printStackTrace(new PrintWriter(sw)); // 맨 안쪽 진짜 원인부터
+        sw.append("\n-- 바깥: ").append(String.valueOf(e));
         final String body = "{\"fields\":{"
             + "\"at\":{\"integerValue\":\"" + System.currentTimeMillis() + "\"},"
             + "\"ua\":" + s("android-app " + BuildConfigLite.VERSION + " / " + Build.MANUFACTURER + " " + Build.MODEL + " / Android " + Build.VERSION.RELEASE, 220) + ","
-            + "\"msg\":" + s("앱이 꺼짐: " + e, 200) + ","
+            + "\"msg\":" + s("앱이 꺼짐: " + root, 200) + ","
             + "\"errs\":" + s(sw.toString(), 900) + ","
             + "\"url\":" + s("android-app", 200) + ","
             + "\"step\":" + s("crash", 200) + "}}";
