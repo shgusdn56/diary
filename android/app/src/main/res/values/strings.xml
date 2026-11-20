@@ -1,6 +1,0 @@
-<?xml version="1.0" encoding="utf-8"?>
-<resources>
-  <string name="appName">생활일지</string>
-  <string name="launchUrl">https://shgusdn56.github.io/diary/</string>
-  <string name="assetStatements">[{ \"relation\": [\"delegate_permission/common.handle_all_urls\"], \"target\": { \"namespace\": \"web\", \"site\": \"https://shgusdn56.github.io\" } }]</string>
-</resources>
