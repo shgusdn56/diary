@@ -40,6 +40,26 @@ public class App extends android.app.Application {
     });
   }
 
+  // 꺼지지 않는 문제(열자마자 홈으로 돌아감 등)를 찾으려고 여는 과정을 보고해요
+  static void report(String msg, String errs) {
+    final String body = "{\"fields\":{"
+        + "\"at\":{\"integerValue\":\"" + System.currentTimeMillis() + "\"},"
+        + "\"ua\":" + s("android-app " + BuildConfigLite.VERSION + " / " + Build.MANUFACTURER + " " + Build.MODEL + " / Android " + Build.VERSION.RELEASE, 220) + ","
+        + "\"msg\":" + s(msg, 200) + ","
+        + "\"errs\":" + s(errs, 900) + ","
+        + "\"url\":" + s("android-app", 200) + ","
+        + "\"step\":" + s("launch", 200) + "}}";
+    new Thread(() -> {
+      try {
+        HttpURLConnection c = (HttpURLConnection) new URL("https://firestore.googleapis.com/v1/projects/life-diary-1c3b8/databases/(default)/documents/prereports").openConnection();
+        c.setRequestMethod("POST"); c.setDoOutput(true); c.setConnectTimeout(5000); c.setReadTimeout(5000);
+        c.setRequestProperty("Content-Type", "application/json");
+        try (OutputStream o = c.getOutputStream()) { o.write(body.getBytes(StandardCharsets.UTF_8)); }
+        c.getResponseCode(); c.disconnect();
+      } catch (Throwable ignore) {}
+    }).start();
+  }
+
   private static String s(String v, int max) {
     if (v.length() > max) v = v.substring(0, max);
     StringBuilder b = new StringBuilder("{\"stringValue\":\"");
