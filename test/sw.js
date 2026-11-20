@@ -1,8 +1,8 @@
 // 빠르게 열기: 사이트 파일과 Firebase 프로그램을 이 기기에 저장해 두고 바로 열어요.
 // 열 때 새 파일을 먼저 받고(느리면 저장해 둔 걸로), 늦게 받은 새 버전은 '새 버전' 알림을 띄워요.
-const C = 'diary-v1'; // sw 2
+const C = 'diary-v2'; // sw 3 (v1에 깨져 저장된 큰 파일을 버리려고 이름을 바꿔요)
 self.addEventListener('install', () => self.skipWaiting());
-self.addEventListener('activate', (e) => e.waitUntil(self.clients.claim()));
+self.addEventListener('activate', (e) => e.waitUntil(caches.keys().then((ks) => Promise.all(ks.filter((k) => k.startsWith('diary-') && k !== C).map((k) => caches.delete(k)))).then(() => self.clients.claim())));
 let tm = null;
 const notify = () => { clearTimeout(tm); tm = setTimeout(() => self.clients.matchAll({ type: 'window' }).then((cs) => cs.forEach((c) => c.postMessage('diary-update'))), 300); };
 self.addEventListener('fetch', (e) => {
@@ -12,6 +12,8 @@ self.addEventListener('fetch', (e) => {
   const same = u.origin === scope.origin && u.pathname.startsWith(scope.pathname);
   const fb = u.hostname === 'www.gstatic.com' && u.pathname.startsWith('/firebasejs/');
   if (!same && !fb) return;
+  // 앱 파일(apk)·PDF·사진 같은 큰 파일은 저장하지 않고 그대로 받아요(글자로 바꿔 저장하면서 파일이 깨졌어요)
+  if (/\.(apk|pdf|png|jpe?g|webp|gif|zip)$/i.test(u.pathname)) return;
   if (fb) { // 버전이 박힌 주소라 바뀌지 않아요: 저장해 둔 걸 그대로
     e.respondWith(caches.open(C).then(async (c) => { const hit = await c.match(r); if (hit) return hit; const res = await fetch(r); if (res.ok) c.put(r, res.clone()); return res; }));
     return;
