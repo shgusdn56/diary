@@ -3,7 +3,7 @@
   <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
   <uses-permission android:name="android.permission.INTERNET" />
   <queries><package android:name="com.android.chrome" /></queries>
-  <application android:name=".App" android:label="@string/appName" android:icon="@mipmap/ic_launcher" android:roundIcon="@mipmap/ic_launcher" android:allowBackup="true" android:supportsRtl="true" android:theme="@android:style/Theme.Translucent.NoTitleBar">
+  <application android:name=".App" android:manageSpaceActivity="com.google.androidbrowserhelper.trusted.ManageDataLauncherActivity" android:label="@string/appName" android:icon="@mipmap/ic_launcher" android:roundIcon="@mipmap/ic_launcher" android:allowBackup="true" android:supportsRtl="true" android:theme="@android:style/Theme.Translucent.NoTitleBar">
     <meta-data android:name="asset_statements" android:resource="@string/assetStatements" />
     <activity android:name=".LauncherActivity" android:exported="true" android:label="@string/appName" android:alwaysRetainTaskState="true">
       <meta-data android:name="android.support.customtabs.trusted.DEFAULT_URL" android:value="@string/launchUrl" />
@@ -23,6 +23,14 @@
         <category android:name="android.intent.category.DEFAULT" />
         <category android:name="android.intent.category.BROWSABLE" />
         <data android:scheme="https" android:host="shgusdn56.github.io" android:pathPrefix="/diary/" />
+      </intent-filter>
+    </activity>
+    <!-- 앱을 열 때 안쪽 도구가 '사이트 설정' 바로가기를 켜요. 여기 등록돼 있지 않으면 열자마자 꺼졌어요 -->
+    <activity android:name="com.google.androidbrowserhelper.trusted.ManageDataLauncherActivity" android:exported="false" android:enabled="true" android:excludeFromRecents="true">
+      <meta-data android:name="android.support.customtabs.trusted.MANAGE_SPACE_URL" android:value="@string/launchUrl" />
+      <intent-filter>
+        <action android:name="android.intent.action.APPLICATION_PREFERENCES" />
+        <category android:name="android.intent.category.DEFAULT" />
       </intent-filter>
     </activity>
     <activity android:name="com.google.androidbrowserhelper.trusted.FocusActivity" />

@@ -16,8 +16,14 @@ public class App extends android.app.Application {
     Thread.setDefaultUncaughtExceptionHandler((t, e) -> {
       try {
         Throwable root = e; while (root.getCause() != null && root.getCause() != root) root = root.getCause();
-        StringWriter sw = new StringWriter(); root.printStackTrace(new PrintWriter(sw)); // 맨 안쪽 진짜 원인부터
-        sw.append("\n-- 바깥: ").append(String.valueOf(e));
+        // 오류 사슬 전체를 짧게: 각 단계의 종류·내용과 앞쪽 4줄 (가운데 진짜 원인이 잘리지 않게)
+        StringWriter sw = new StringWriter(); int depth = 0;
+        for (Throwable x = e; x != null && depth < 6; x = (x.getCause() == x ? null : x.getCause()), depth++) {
+          String m = String.valueOf(x); if (m.length() > 160) m = m.substring(0, 160);
+          sw.append("#").append(String.valueOf(depth)).append(" ").append(m).append("\n");
+          StackTraceElement[] st = x.getStackTrace();
+          for (int i = 0; i < Math.min(4, st.length); i++) { String f = String.valueOf(st[i]); sw.append("  @").append(f.length() > 110 ? f.substring(0, 110) : f).append("\n"); }
+        }
         final String body = "{\"fields\":{"
             + "\"at\":{\"integerValue\":\"" + System.currentTimeMillis() + "\"},"
             + "\"ua\":" + s("android-app " + BuildConfigLite.VERSION + " / " + Build.MANUFACTURER + " " + Build.MODEL + " / Android " + Build.VERSION.RELEASE, 220) + ","

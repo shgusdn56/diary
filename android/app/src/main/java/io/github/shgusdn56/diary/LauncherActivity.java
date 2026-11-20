@@ -33,8 +33,7 @@ public class LauncherActivity extends com.google.androidbrowserhelper.trusted.La
       d.append(" / 고른 것(만들기 전)=").append(picked);
     } catch (Throwable e) { d.append(" 진단오류 ").append(e); }
     try {
-      super.launchTwa();
-      App.report("앱 열기: " + picked, d.toString());
+      super.launchTwa(); // 잘 열리면 보고하지 않아요(실패할 때만)
     } catch (Throwable e) {
       App.report("앱 열기 실패: " + e, d + "\n" + android.util.Log.getStackTraceString(e));
       throw e;
