@@ -95,6 +95,26 @@ exports.dayAlert = onDocumentWritten('spaces/{sid}/days/{date}', async (ev) => {
   D.push('알림 켠 사람 수: ' + ns.size); console.log('[dayAlert] ' + D.join(' / ')); // 메일 대신 서버 기록에만
 });
 
+// 사진 알림: 사진은 날짜 기록(days)과 따로(photos) 저장돼서 위 수정 알림에 안 잡혔어요.
+//  한 번에 여러 장 올리면 15초 모아서 'N장' 알림 하나로 보내요(같은 사람·같은 날짜는 90초에 한 번)
+exports.photoAlert = onDocumentCreated('spaces/{sid}/photos/{pid}', async (ev) => {
+  const { sid } = ev.params, p = ev.data && ev.data.data();
+  if (!p || !p.by || !/^\d{4}-\d{2}-\d{2}$/.test(p.date || '')) return;
+  const gate = db.doc(`spaces/${sid}/photoNoti/${p.date}_${p.by}`), t0 = Date.now();
+  const go = await db.runTransaction(async (tx) => { const g = await tx.get(gate); if (g.exists && t0 - (g.data().at || 0) < 90e3) return false; tx.set(gate, { at: t0 }); return true; });
+  if (!go) return;
+  await new Promise((ok) => setTimeout(ok, 15000));
+  const q = await db.collection(`spaces/${sid}/photos`).where('date', '==', p.date).get();
+  const n = q.docs.filter((d) => { const x = d.data(); return x.by === p.by && (x.createdAt || 0) >= (p.createdAt || t0) - 1000; }).length || 1;
+  const sp = await db.doc(`spaces/${sid}`).get(); if (!sp.exists) return;
+  let who = '공유자'; try { const pr = await db.doc(`spaces/${sid}/profiles/${p.by}`).get(); if (pr.exists && pr.data().name) who = pr.data().name; } catch (e) {}
+  const jn = await journalName(sid), ns = await db.collection(`spaces/${sid}/notify`).where('on', '==', true).get();
+  for (const d of ns.docs) {
+    if (d.id === p.by || !(await isMember(sid, d.id, sp.data()))) continue;
+    try { await pushTo(d.id, { title: `[${jn}] 사진 알림`, body: `${who} · ${md(p.date)}\n사진 ${n}장을 올렸어요`, url: lnk(sid), tag: `photo-${sid}-${p.date}` }); } catch (e) { logger.error('photoAlert', e); }
+  }
+});
+
 // ── 2) 오늘 일정
 function morningMsg(log, iso, hol, jn) {
   const [y, m, d] = iso.split('-').map(Number), wd = WDK[new Date(Date.UTC(y, m - 1, d)).getUTCDay()];
