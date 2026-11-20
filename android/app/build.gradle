@@ -19,5 +19,6 @@ dependencies { implementation 'com.google.androidbrowserhelper:androidbrowserhel
 android { testOptions { unitTests { includeAndroidResources = true; all { systemProperty 'robolectric.dependency.repo.url', 'https://repo1.maven.org/maven2'; systemProperty 'robolectric.offline', 'false' } } } }
 dependencies {
   testImplementation 'junit:junit:4.13.2'
+  testImplementation 'androidx.test:core:1.6.1'
   testImplementation 'org.robolectric:robolectric:4.16'
 }
