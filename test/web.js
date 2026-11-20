@@ -214,12 +214,9 @@ document.body.insertAdjacentHTML('beforeend', `
     <p class="wstat" id="wDevList"></p>
     <div class="aur"><button type="button" class="autest" id="wDevLocal" title="서버를 거치지 않고 이 휴대폰에 바로 알림을 띄워 봐요">이 기기에 바로 띄워 보기</button></div>
     <details class="wapn"><summary>알림이 안 오면 · 휴대폰 설정 확인</summary>
-      <p>앱으로 설치한 생활일지는 <b>휴대폰이 알림을 '차단됨'으로 시작</b>하는 경우가 있어요. 그러면 여기서 켜고 '테스트'가 1/1로 나와도 알림이 화면에 안 떠요.</p>
-      <p><b>갤럭시:</b> 설정 → 애플리케이션 → <b>생활일지</b> → 알림 → <b>허용</b>으로 바꿔 주세요(홈 화면의 생활일지 아이콘을 길게 눌러 ⓘ 앱 정보 → 알림으로도 갈 수 있어요).</p>
-      <p><b>설정이 다 '허용'인데도 안 뜨면(갤럭시):</b> 설치한 앱이 알림 통로 없이 설치된 경우예요. 아래 '이 기기에 바로 띄워 보기'를 눌러도 안 뜨면 이렇게 해 주세요(일지 내용은 그대로예요).<br>
-        ① 홈 화면의 생활일지 아이콘을 길게 눌러 <b>제거</b> → ② 삼성 인터넷으로 일지 주소를 열어 '이 기기에 바로 띄워 보기'로 뜨는지 확인 → ③ 메뉴에서 <b>앱 설치</b>를 다시 하고, 새 앱에서 '이 기기에서 알림 받기'를 껐다 켜기.</p>
-      <p><b>삼성 인터넷:</b> 설정 → 사이트 및 다운로드 → 알림에서 <b>'웹사이트 알림 자동 차단'을 꺼</b> 주세요. 켜져 있으면 알림을 잘 안 연다고 판단한 사이트를 말없이 막아요.</p>
-      <p><b>브라우저로 쓸 때:</b> 설정 → 애플리케이션 → <b>삼성 인터넷(또는 Chrome)</b> → 알림이 허용인지, 브라우저의 사이트 알림에서 이 사이트가 허용인지 확인해 주세요.</p>
+      <p><b>갤럭시는 Chrome으로 설치한 앱을 써 주세요.</b> 삼성 인터넷으로 설치한 앱은 알림이 휴대폰에 안 뜨는 경우가 있었어요(서버는 '보냈어요'로 나와도). 삼성 인터넷은 평소처럼 기본 브라우저로 두고, 생활일지만 Chrome으로 설치하면 돼요.<br>
+        ① 삼성 인터넷으로 설치한 생활일지가 있으면 아이콘을 길게 눌러 <b>제거</b>(일지 내용은 그대로예요) → ② <b>Chrome</b>에서 일지 주소를 열고 오른쪽 위 <b>⋮ → '설치 및 바로가기 만들기' → '설치'</b> → ③ 새 앱에서 '이 기기에서 알림 받기'를 켜고 허용 → '이 기기에 바로 띄워 보기'로 확인.</p>
+      <p><b>알림이 '차단됨'이면:</b> 설정 → 애플리케이션 → <b>생활일지</b>(또는 Chrome) → 알림 → <b>허용</b>(홈 화면의 생활일지 아이콘을 길게 눌러 ⓘ 앱 정보 → 알림으로도 갈 수 있어요).</p>
       <p><b>아이폰:</b> 설정 → 알림 → <b>생활일지</b> → 알림 허용.</p></details></div>
   <div class="aubox"><div class="auh"><b>수정 알림</b>${sw('wEditSw', '수정 알림')}</div>
     <p>다른 사람이 일지를 고치면 바로 알려 줘요(고친 사람이 칸을 빠져나갈 때). 내가 고친 건 알리지 않아요.</p>
@@ -321,7 +318,7 @@ async function registerDevice(ask, fresh, step = () => {}) {
 const devErr = (e) => ({
   IOS: 'iPhone·iPad는 Safari에서 공유 버튼 → \'홈 화면에 추가\'를 한 뒤, 홈 화면의 생활일지 아이콘으로 열어야 알림을 받을 수 있어요(iOS 16.4 이상).',
   NOSUP: '이 브라우저는 알림을 지원하지 않아요. 휴대폰은 Chrome(안드로이드)이나 홈 화면에 추가한 앱으로 열어 주세요.',
-  DENIED: '알림이 차단돼 있어요. 휴대폰 설정 → 애플리케이션 → 생활일지(브라우저로 쓰면 삼성 인터넷·Chrome) → 알림을 \'허용\'으로 바꾸고, 브라우저의 사이트 알림도 허용으로 바꿔 주세요.',
+  DENIED: '알림이 차단돼 있어요. 휴대폰 설정 → 애플리케이션 → 생활일지(또는 Chrome) → 알림을 \'허용\'으로 바꾸고, 브라우저의 사이트 알림도 허용으로 바꿔 주세요.',
   NOPERM: '알림 허용을 눌러야 받을 수 있어요.',
   NOTOKEN: '알림 등록 번호를 받지 못했어요. 잠시 뒤 다시 해 주세요.',
   ASKWAIT: '알림 허용 질문에 대답이 없어요. 브라우저가 묻지 않고 막고 있을 수 있어요. 주소창 왼쪽 자물쇠(또는 브라우저 설정 → 사이트 권한 → 알림)에서 이 사이트를 \'허용\'으로 바꾼 뒤 다시 켜 주세요.',
@@ -583,7 +580,7 @@ async function welcome(oldUser) {
     ${isIOS && !standalone ? `<p class="wstat bad">아이폰은 Safari 아래쪽 공유 버튼 → '홈 화면에 추가'를 한 뒤, 홈 화면의 생활일지 아이콘으로 열어야 알림을 켤 수 있어요(iOS 16.4 이상).</p>` : `<div class="aur"><button type="button" class="go" id="wWelNoti">지금 켜기</button></div>`}
     <p class="wstat" id="wWelMsg"></p></div>
   ${isIOS || standalone ? '' : `<div class="aubox"><div class="auh"><b>2. 앱으로 설치하기</b></div><p class="note" style="margin:4px 0 8px">설치하면 앱 목록과 홈 화면에 '생활일지' 아이콘이 생겨서 주소창 없이 앱처럼 바로 열려요. 측면 버튼·루틴 같은 '앱 열기'에서도 '생활일지'로 고를 수 있어요.</p>
-    <p class="note" id="wWelInstHow" style="margin:4px 0 0">${andr ? '삼성 인터넷: 주소창 오른쪽의 ⤓ 아이콘 → \'설치\' (아이콘이 없으면 아래 메뉴 ≡ → \'현재 페이지 추가\' → \'홈 화면\')<br>\'안전하지 않은 앱 차단됨\'(Google Play 프로텍트) 창이 뜨면 \'세부정보 더보기\' → \'무시하고 설치\'를 누르면 돼요. 일지가 만든 앱이라 괜찮아요.<br>Chrome: 오른쪽 위 ⋮ → \'홈 화면에 추가\' → \'설치\'' : '브라우저 메뉴에서 \'앱 설치\' 또는 \'홈 화면에 추가\'를 눌러 주세요.'}</p></div>`}
+    <p class="note" id="wWelInstHow" style="margin:4px 0 0">${andr ? '<b>Chrome</b>으로 일지 주소를 열고 오른쪽 위 ⋮ → \'설치 및 바로가기 만들기\' → \'설치\'<br>삼성 인터넷으로 설치한 앱은 알림이 안 뜨는 경우가 있어서 Chrome을 권해요. 휴대폰 기본 브라우저는 삼성 인터넷 그대로 두면 되고, 생활일지 앱만 Chrome으로 열려요.' : '브라우저 메뉴에서 \'앱 설치\' 또는 \'홈 화면에 추가\'를 눌러 주세요.'}</p></div>`}
   <div class="aubox"><div class="auh"><b>${isIOS || standalone ? '2' : '3'}. 더 알아보기</b></div><p class="note" style="margin:4px 0 0">메뉴(⋯) → '기능 설명서'에 쓰는 법이 모두 있어요. 같이 쓸 사람은 메뉴 → '공유'에서 초대해요.</p></div>
   <div class="actions"><button class="ghost" id="wWelLater">나중에</button><button class="go" id="wWelOk">시작하기</button></div></div></div>`);
   const done = (keep) => { close('wWelModal'); if (keep) setDoc(wref, { at: Date.now() }).catch(() => {}); };
@@ -595,7 +592,7 @@ async function welcome(oldUser) {
     try {
       await registerDevice(true, true); drawDev();
       await setDoc(nref(), { on: true, mOn: true, mAt: '07:20', mAtSet: '07:20', name: myName(), updatedAt: Date.now() }, { merge: true });
-      m.className = 'wstat ok'; m.textContent = '켰어요. 앱으로 설치했다면 휴대폰 설정 → 애플리케이션 → 생활일지 → 알림이 \'허용\'인지도 꼭 확인해 주세요(처음엔 차단돼 있기도 해요). 시각은 메뉴 → 휴대폰 알림에서 바꿀 수 있어요.'; b.textContent = '켜짐';
+      m.className = 'wstat ok'; m.textContent = '켰어요. 메뉴 → 휴대폰 알림 → \'이 기기에 바로 띄워 보기\'로 알림이 뜨는지 확인해 주세요(안 뜨면 Chrome으로 앱을 설치해 주세요). 시각은 메뉴 → 휴대폰 알림에서 바꿀 수 있어요.'; b.textContent = '켜짐';
     } catch (e) { b.disabled = false; m.className = 'wstat bad'; m.textContent = devErr(e); }
   });
   // 비밀번호 화면이 끝나고 다른 창이 없을 때 띄워요
@@ -714,7 +711,7 @@ if (CREATOR) {
 
 // ── 기능 설명서 창 맨 위: 사용설명서 PDF 받기 (사이트의 guide.pdf — 설명서를 고칠 때 GUIDE_V도 같이 올려요)
 {
-  const GUIDE_V = 'v12', nav = $('gdNav');
+  const GUIDE_V = 'v13', nav = $('gdNav');
   if (nav) {
     const url = new URL((window.__WEBJS ? '../' : './') + 'guide.pdf?v=' + GUIDE_V, location.href).href;
     const fname = `생활일지-사용설명서-${GUIDE_V}.pdf`;
@@ -782,7 +779,7 @@ if (CREATOR) {
     } catch (e) { return; }
     document.body.insertAdjacentHTML('beforeend', `<div class="modal" id="wNotice" role="dialog" aria-modal="true"><div class="sheet"><button class="wclose" type="button" aria-label="닫기">✕</button><h2>휴대폰 알림 설정을 확인해 주세요</h2>
       <p class="note" style="font-size:14px;line-height:1.7">앱으로 설치한 생활일지는 휴대폰이 알림을 <b>'차단됨'으로 시작</b>하는 경우가 있어요. 그러면 일지에서 알림을 켜도 휴대폰에 알림이 오지 않아요.</p>
-      <div class="aubox" style="font-size:13.5px;line-height:1.7"><b>갤럭시</b> 설정 → 애플리케이션 → <b>생활일지</b> → 알림 → <b>허용</b><br><span style="color:var(--mute,#6b7385)">(홈 화면의 생활일지 아이콘을 길게 눌러 ⓘ 앱 정보 → 알림으로도 가요)</span><br><b>브라우저로 쓸 때</b> 설정 → 애플리케이션 → 삼성 인터넷(또는 Chrome) → 알림 허용<br><b>아이폰</b> 설정 → 알림 → 생활일지 → 알림 허용</div>
+      <div class="aubox" style="font-size:13.5px;line-height:1.7"><b>갤럭시</b> 설정 → 애플리케이션 → <b>생활일지</b> → 알림 → <b>허용</b><br><span style="color:var(--mute,#6b7385)">(홈 화면의 생활일지 아이콘을 길게 눌러 ⓘ 앱 정보 → 알림으로도 가요)</span><br><b>갤럭시에서 앱은 Chrome으로 설치</b>해 주세요(삼성 인터넷으로 설치한 앱은 알림이 안 뜨는 경우가 있어요)<br><b>아이폰</b> 설정 → 알림 → 생활일지 → 알림 허용</div>
       <p class="note">허용한 뒤 메뉴 → 휴대폰 알림 → '테스트'로 알림이 오는지 확인해 보세요.</p>
       <div class="actions"><button class="ghost" id="wNoticeLater">나중에 다시 보기</button><button class="go" id="wNoticeOk">확인했어요</button></div></div></div>`);
     const done = (keep) => { close('wNotice'); if (keep) setDoc(nref, { at: Date.now() }).catch(() => {}); };
@@ -791,6 +788,20 @@ if (CREATOR) {
     const t0 = Date.now(); const tick = () => { if (Date.now() - t0 > 10 * 60e3) return; if (document.body.classList.contains('locked') || document.querySelector('.modal.on')) { setTimeout(tick, 1500); return; } open('wNotice'); }; tick();
   }, 4000);
 }
+
+// ── 삼성 인터넷으로 설치한 앱으로 연 분께 한 번: Chrome으로 다시 설치하라고 알려요(그 앱은 알림이 휴대폰에 안 뜨는 경우가 있었어요)
+if (standalone && /Android/.test(navigator.userAgent) && /SamsungBrowser/.test(navigator.userAgent)) setTimeout(async () => {
+  const cref = doc(fs, `private/${U.uid}/web/chrome1`);
+  try { if ((await getDoc(cref)).exists()) return; } catch (e) { return; }
+  document.body.insertAdjacentHTML('beforeend', `<div class="modal" id="wChrome" role="dialog" aria-modal="true"><div class="sheet"><button class="wclose" type="button" aria-label="닫기">✕</button><h2>생활일지 앱을 Chrome으로 다시 설치해 주세요</h2>
+    <p class="note" style="font-size:14px;line-height:1.7">지금 앱은 <b>삼성 인터넷으로 설치</b>됐어요. 이렇게 설치한 앱은 <b>알림이 휴대폰에 안 뜨는 경우</b>가 있어요. 삼성 인터넷은 평소처럼 기본 브라우저로 두고, 생활일지만 Chrome으로 설치하면 돼요(일지 내용은 그대로예요).</p>
+    <div class="aubox" style="font-size:13.5px;line-height:1.8">① 홈 화면의 생활일지 아이콘을 길게 눌러 <b>제거</b><br>② <b>Chrome</b>에서 <b>shgusdn56.github.io/diary</b> 열기<br>③ 오른쪽 위 <b>⋮ → 설치 및 바로가기 만들기 → 설치</b><br>④ 새 앱에서 Google 로그인 → 메뉴 → 휴대폰 알림 → '이 기기에서 알림 받기' 켜기</div>
+    <div class="actions"><button class="ghost" id="wChromeLater">나중에</button><button class="go" id="wChromeOk">알겠어요</button></div></div></div>`);
+  const done = (keep) => { close('wChrome'); if (keep) setDoc(cref, { at: Date.now() }).catch(() => {}); };
+  $('wChromeOk').addEventListener('click', () => done(true)); $('wChromeLater').addEventListener('click', () => done(false));
+  $('wChrome').querySelector('.wclose').addEventListener('click', () => done(false));
+  const t0 = Date.now(); const tick = () => { if (Date.now() - t0 > 10 * 60e3) return; if (document.body.classList.contains('locked') || document.querySelector('.modal.on')) { setTimeout(tick, 1500); return; } open('wChrome'); }; tick();
+}, 6000);
 
 // ── 저장 공간 '이 일지 몫': 서버가 무료 1GB를 일지 주인 수로 나눠 config/quota에 적어 둬요(메뉴의 저장 공간 막대가 이 값을 써요)
 onSnapshot(doc(fs, 'config', 'quota'), (s) => { const p = s.exists() ? +s.data().per || 0 : 0; if (p > 0) window.__QUOTA = p; }, () => {});
