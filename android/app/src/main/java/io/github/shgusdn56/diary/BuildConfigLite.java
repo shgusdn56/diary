@@ -1,2 +1,2 @@
 package io.github.shgusdn56.diary;
-final class BuildConfigLite { static final String VERSION = "1.5"; }
+final class BuildConfigLite { static final String VERSION = "1.6"; }

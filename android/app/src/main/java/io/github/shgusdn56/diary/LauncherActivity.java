@@ -1,6 +1,10 @@
 package io.github.shgusdn56.diary;
 
+import android.Manifest;
 import android.content.Intent;
+import android.content.pm.PackageManager;
+import android.os.Build;
+import android.os.Bundle;
 import android.content.pm.ApplicationInfo;
 import android.content.pm.PackageInfo;
 import android.content.pm.ResolveInfo;
@@ -10,11 +14,30 @@ import com.google.androidbrowserhelper.trusted.TwaLauncher;
 import java.util.Collections;
 
 // 생활일지 앱: 일지 사이트를 주소창 없이 앱 화면으로 열어요.
-//  - 알림 허용은 일지에서 '이 기기에서 알림 받기'를 켤 때 휴대폰이 이 앱 이름으로 물어요(앱 안 알림 통로로 와요)
+//  - 처음 열 때 휴대폰 알림 허용을 바로 물어요(안 물으면 안드로이드 13 이상에서 '차단됨'으로 남아요)
 //  - Chrome이 '켜져 있고 앱 화면을 지원'하면 Chrome으로, 아니면 기본 브라우저로 열어요
 public class LauncherActivity extends com.google.androidbrowserhelper.trusted.LauncherActivity {
   private static final String CHROME = "com.android.chrome";
   private String picked = "(기본)";
+  private static final int REQ = 7;
+  private boolean waiting;
+
+  @Override protected void onCreate(Bundle b) {
+    waiting = Build.VERSION.SDK_INT >= 33 && checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED
+        && !getSharedPreferences("diary", MODE_PRIVATE).getBoolean("asked2", false);
+    super.onCreate(b);
+    if (waiting) {
+      getSharedPreferences("diary", MODE_PRIVATE).edit().putBoolean("asked2", true).apply();
+      requestPermissions(new String[] { Manifest.permission.POST_NOTIFICATIONS }, REQ);
+    }
+  }
+
+  @Override protected boolean shouldLaunchImmediately() { return !waiting; }
+
+  @Override public void onRequestPermissionsResult(int code, String[] p, int[] r) {
+    super.onRequestPermissionsResult(code, p, r);
+    if (code == REQ && waiting) { waiting = false; launchTwa(); }
+  }
 
   @Override protected TwaLauncher createTwaLauncher() {
     String p = null;
